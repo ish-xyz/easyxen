@@ -1,0 +1,66 @@
+#!/bin/bash
+#
+#Userdata on XEN VM  to perform a full automated provisioning of VM on XEN hypervisors
+
+test -n "$1" && source $1
+
+function main() {
+	#Main function to run all the module automation
+
+	#Loading basic library
+	test -f "./lib/basic.sh" && \
+	source "./lib/basic.sh" || \
+	exit "${LINENO}"
+
+	initialize_vars
+	check_state
+	check_exit \
+		"$?" \
+		"get automation state." \
+		"get automation state. ${state}" \
+		"fail" \
+		"${LINENO}"
+
+	#Include the selected operation.
+	#If not exist ERROR
+	test -f "./cmd/${state}.sh" && \
+	source "./cmd/${state}.sh" || \
+	exit "${LINENO}"
+	
+	"${state}"
+}
+
+## Temp todo list (script.sh todo)
+if [ "$1" == "todo" ]; then
+
+cat <<____EOF____
+TODO:
+reconfigure.sh -> TODO
+present.sh -> Private key and authentication management [in_progress]
+@all -> Testing remote execution.
+	present.sh -> Image download and cache on the XEN system
+prenset.sh -> Add userdata option.
+present.sh -> Rimozione vif vecchie in present.sh
+absent.sh -> Add keep disks feature.
+Lint and syntax check script.
+	#Controllo lunghezza righe
+	#Controllo variabili {}
+	#Controllo parentesi quadre su if
+	#Controllo docstring sulle funzioni
+present.sh -> Create configuration per distro.
+Create guideline and script to build base images.
+@all -> Create script to check syntax and lint of the module like pylint.
+present.sh -> Add DHCP option.
+@all -> Output for ansible
+present.sh -> custom DNS (optional).
+README:
+	code reusability --> basic.sh
+	how frameworks work
+	estenbilità
+	disk_mount automation explenation
+	aggiunta stati
+____EOF____
+	exit 0
+fi
+
+main

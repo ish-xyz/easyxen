@@ -1,0 +1,459 @@
+#!/bin/bash
+#
+## Function to provision VMs on XEN hypervisors
+## And configure those automatically
+## NON-IDEMPOTENT for choice
+##
+#################################################
+
+function present() {
+	##Create VM and setup as the desidered state.
+	##
+
+	#Initialize variables
+	retry_temptative=0
+	count=0
+	vgflag="vgroot"
+    mount_point="/mnt/$vm_name";
+    mount_dev="/dev/${vgflag}/root"
+   
+    function usage() {
+    	#Usage function, help
+		cat <<____EOF____
+- name: "Xen provisioning new machine"
+  easyxen:
+    state: present 											* REQUIRED
+    vm_name: worker2 										* REQUIRED
+    cpu: 1 													* REQUIRED
+    ram: 512 												* REQUIRED
+    mac_address: 00:0c:29:6f:5d:c3  						(optional) - default = automatically generated
+    image: base.xva											* REQUIRED
+    ip_address: 192.168.1.170 								* REQUIRED
+    gateway: 192.168.1.1 									* REQUIRED
+    netmask: 255.255.255.0 									(optional) - default = 255.255.255.0
+    broadcast: 192.168.1.255 								(optional) - default = {{ ip_address }}.255
+    dns1: 192.168.1.126 									(optional) - default = 8.8.8.8
+    dns2: 192.168.1.127 									(optional) - default = 8.8.4.4
+    disk_to_mount: 0 										* REQUIRED
+    distro: centos					 						* REQUIRED
+    network_file: '{network_path}/ifcfg-eth0' 				(optional) - default defined by OS distro.
+    public_key: 'id_rsa.pub (raw key)'						* REQUIRED
+    after_configuration: halt/run 							(optional) - default = run
+
+____EOF____
+	}
+	
+	function cleanup() {
+		if [[ $1 != 0 ]]; then
+			case "$2" in
+
+				'plug')
+					xe vbd-destroy uuid="${new_vbd_uuid}";
+					;;
+
+				'plug')
+					xe vbd-destroy uuid="${new_vbd_uuid}";
+					;;
+
+				'kpartx')
+					xe vbd-unplug uuid="${new_vbd_uuid}";
+					xe vbd-destroy uuid="${new_vbd_uuid}";
+					;;
+
+				'vgchange')
+					/sbin/kpartx -fd "/dev/${device}" > /dev/null 2>&1
+					xe vbd-unplug uuid="${new_vbd_uuid}";
+					xe vbd-destroy uuid="${new_vbd_uuid}";
+					;;
+
+				'mount')
+					vgchange -an "${vgflag}" --config global{metadata_read_only=0} > /dev/null 2>&1
+					rmdir "${mount_point}/"
+					/sbin/kpartx -fd "/dev/${device}" > /dev/null 2>&1
+					xe vbd-unplug uuid="${new_vbd_uuid}";
+					xe vbd-destroy uuid="${new_vbd_uuid}";
+					;;
+
+				*)
+					log "msg" "Cleanup called, but nothing to do."
+					;;
+			esac
+		fi
+	}
+
+	function configure_network_centos() {
+echo -ne \
+"DEVICE=eth0\n\
+BOOTPROTO=none\n\
+ONBOOT=yes\n\
+USERCTL=no\n\
+IPV6INIT=no\n\
+PEERDNS=no\n\
+DNS1=${dns1}\n\
+DNS2=${dns2}\n\
+TYPE=Ethernet\n\
+NETMASK=${netmask}\n\
+IPADDR=${ip_address}\n\
+GATEWAY=${gateway}\n\
+HWADDR=${mac_address}\n\
+ARP=yes" > "${mount_point}${network_file}";
+
+		echo "$vm_name" > "${mount_point}/etc/hostname"
+		echo "127.0.0.1 $vm_name" >> "${mount_point}/etc/hosts"
+		mkdir "${mount_point}/root/.ssh" && echo "$public_key" > "${mount_point}/root/.ssh/authorized_keys"
+	}
+
+
+	function configure_network_ubuntu() {
+		log 'msg' "No configuration found for distro: ${distro}"
+	}
+
+
+	function configure_network_redhat() {
+		echo -ne \
+"DEVICE=eth0\n\
+BOOTPROTO=none\n\
+ONBOOT=yes\n\
+USERCTL=no\n\
+IPV6INIT=no\n\
+PEERDNS=no\n\
+DNS1=${dns1}\n\
+DNS2=${dns2}\n\
+TYPE=Ethernet\n\
+NETMASK=${netmask}\n\
+IPADDR=${ip_address}\n\
+GATEWAY=${gateway}\n\
+HWADDR=${mac_address}\n\
+ARP=yes" > "${mount_point}${network_file}";
+
+		echo "$vm_name" > "${mount_point}/etc/hostname"
+		echo "127.0.0.1 $vm_name" >> "${mount_point}/etc/hosts"
+		mkdir "${mount_point}/root/.ssh" && echo "$public_key" > "${mount_point}/root/.ssh/authorized_keys"
+	}
+
+
+	function configure_network_debian() {
+		log 'msg' "No configuration found for distro: ${distro}"
+	}
+
+##STARTING WORKFLOW###
+#####################################################
+
+	#Check parameters needed for this function.
+	#(the function check_params is in lib/basic.sh)
+	check_params \
+		'vm_name' \
+		'cpu' \
+		'ram' \
+		'gateway' \
+		'ip_address' \
+		'disk_to_mount' \
+		'distro' \
+		'public_key' \
+		'image'
+
+
+	#Setting up all optional variables with the default value.
+
+	#DNS default are google dns 8.8.8.8/8.8.4.4
+	[[ -z "${dns1}" ]] && dns1='8.8.8.8'
+	[[ -z "${dns2}" ]] && dns1='8.8.4.4'
+
+	#Netmask default is /24
+	[[ -z "${netmask}" ]] && netmask='255.255.255.0'
+
+	#Network file to the network configuration on the guest.
+	[[ -z "${network_file}" ]] && \
+		network_file='/etc/sysconfig/network-scripts/ifcfg-eth0'
+
+	#After the machine is configured (halt or run, default=run)
+	[[ -z "${after_configuration}" ]] && \
+		after_configuration="run"
+	
+	#Default Broadcast addr is .255
+	[[ -z "${broadcast}" ]] && broadcast=$(echo ${ip_address} | 
+		awk -F '.' {'print $1"."$2"."$3".255"'})
+
+	#Default mac_address is {RANDOM}
+	[[ -z "${mac_address}" ]] && \
+		mac_address=$( echo $(uuidgen | sed 's/\-//g' | 
+			cut -c 1-12 | fold -w 2) | sed 's# #:#g');
+
+	#Check if the vm_name is available for this hypervisor.
+	vm_name_available "${vm_name}"
+	check_exit \
+		"$?" \
+		"vm_name available" \
+		"vm_name not available" \
+		"fail" \
+		"${LINENO}"
+
+	#Import vm and get the uuid
+	vm_uuid=$(xe vm-import filename="${IMAGES_REPO}/${image}");
+	check_exit \
+		"$?" \
+		"vm import done." \
+		"vm import fail." \
+		"fail" \
+		"${LINENO}"
+
+	#Rename VM as the desidered state
+	xe vm-param-set uuid="${vm_uuid}" name-label="${vm_name}";
+	check_exit \
+		"$?" \
+		"vm rename done." \
+		"vm rename failed." \
+		"fail" \
+		"${LINENO}"
+
+	#Setup vCPU value for the new VM.
+	xe vm-param-set uuid="${vm_uuid}" \
+    VCPUs-at-startup="1" VCPUs-max="${cpu}"
+
+    xe vm-param-set uuid="${vm_uuid}" \
+    VCPUs-at-startup="${cpu}" VCPUs-max="${cpu}";
+	check_exit \
+		"$?" \
+		"cpu setup done." \
+		"cpu setup failed, not mandatory." \
+		"warn" \
+		"${LINENO}"
+
+	#Setup RAM value for the new VM.
+	xe vm-memory-limits-set uuid="${vm_uuid}" \
+    static-min="${ram}MiB" dynamic-min="${ram}MiB" \
+    static-max="${ram}MiB" dynamic-max="${ram}MiB"
+	check_exit \
+		"$?" \
+		"setup static memory." \
+		"setup static memory, value: ${ram}" \
+		"fail" \
+		"${LINENO}"
+
+	#Remove all old VIF
+	old_vifs=$(xe vif-list vm-uuid="${vm_uuid}" params=uuid  | 
+		awk {'print $5'} | sed '/^\s*$/d');
+
+	for vif_uuid in ${old_vifs[@]}; do
+		xe vif-destroy uuid="${vif_uuid}"
+		check_exit \
+			"$?" \
+			"Remove old virtual interfaces..."
+			"Remove old virtual interface ${vif_uuid}"
+			"fail"
+			"${LINENO}"
+	done
+
+	network_uuid=$(xe network-list bridge=xenbr0 params=uuid |
+		awk {'print $5'} | grep .);
+	check_exit \
+		"$?" \
+		"Get UUID of the xenbr0 interface." \
+		"Get UUID of the xenbr0 interface." \
+		"fail" \
+		"${LINENO}"
+    
+    VIF=$(xe vif-create vm-uuid=${vm_uuid} \
+        mac=${mac_address} \
+        device=1 \
+        network-uuid=${network_uuid});
+	check_exit \
+		"$?" \
+		"Create new network virtual interface" \
+		"Create new network virtual interface with mac_address ${mac_address}" \
+		"fail" \
+		"${LINENO}"
+
+	#Get the dom0 UUID
+    dom0_uuid=$(xe vm-list is-control-domain=true params=uuid | 
+        awk {'print $5'});
+	check_exit \
+		"$?" \
+		"Get dom0 uuid." \
+		"Get dom0 uuid. " \
+		"fail" \
+		"${LINENO}"
+
+	#Get correct vdi_uuid based on device position --> 0
+	vbd_uuids=$(xe vbd-list vm-uuid="${vm_uuid}" params=uuid |
+	                awk {'print $5'} | sed '/^\s*$/d');
+
+	for vbd_uuid in ${vbd_uuids[@]}; do
+	## For each vbd get the VDI device position
+	        device_position=$(xe vbd-param-list uuid=${vbd_uuid} |
+	        	grep userdevice | awk {'print $4'});
+
+	        ## If the position is 0, get the 
+	        ## vdi uuid and save it.
+	        if [[ ${device_position} == ${disk_to_mount} ]]; then
+	                vdi_uuid=$(xe vbd-list uuid=${vbd_uuid} params=vdi-uuid |
+	                        awk {'print $5'} | sed '/^\s*$/d')
+					check_exit \
+						"$?" \
+						"Get vm vdi_uuid." \
+						"Get vm vdi_uuid." \
+						"fail" \
+						"${LINENO}"
+	        fi
+	done
+
+	#Create new vbd on the dom0 for the guest vdi
+    new_vbd_uuid=$(xe vbd-create vm-uuid=${dom0_uuid} \
+        vdi-uuid=${vdi_uuid} device=autodetect);
+	check_exit \
+		"$?" \
+		"Create new vbd on dom0 with the guest vdi." \
+		"new_vbd_uuid: vdi --> ${vdi_uuid}, dom0 --> ${dom0_uuid}}" \
+		"fail" \
+		"${LINENO}"
+
+    xe vbd-plug uuid="${new_vbd_uuid}"
+    rc=$?
+    cleanup "${rc}" 'plug'
+    check_exit \
+		"${rc}" \
+		"Plug new vbd." \
+		"Plug new vbd. new_vbd_uuid --> ${new_vbd_uuid}" \
+		"fail" \
+		"${LINENO}"
+
+	device=$(xe vbd-list uuid="${new_vbd_uuid}" params=device |
+		awk {'print $5'} | sed '/^\s*$/d');
+    rc=$?
+    cleanup "${rc}" 'kpartx'
+	check_exit \
+		"$?" \
+		"Get disk device to setup." \
+		"Get disk device to setup." \
+		"fail" \
+		"${LINENO}"
+
+	#Wait until the vgroot flag is the only one in the system.
+	vg_exist=$(vgs | awk {'print $1'} | grep -w "${vgflag}")
+    while [[ -n "${vg_exist}" ]]; do
+        log 'msg' 'Waiting to the VG'
+        sleep 3
+        retry_temptative=$(( ${retry_temptative} + 1));
+
+        if [[ ${retry_temptative} == 10 ]]; then
+        	cleanup "${rc}" 'kpartx'
+	    	check_exit \
+				"1" "null" \
+				"vgroot flag not available. \
+				Too much build or locked situation." \
+				"fail" \
+				"${LINENO}"
+        fi
+    done
+
+    #Partx new device
+    kpartx_device=$(/sbin/kpartx -fva /dev/${device});
+    rc=$?
+    cleanup "${rc}" 'kpartx'
+    check_exit \
+		"${rc}" \
+		"kpartx disk device" \
+		"kpartx device ${device}" \
+		"fail" \
+		"${LINENO}"
+
+	#Activate the volume group of the guest disk
+	vgchage_device=$(vgchange -ay "${vgflag}" \
+		--config global{metadata_read_only=0})
+	rc=$?
+	cleanup "${rc}" 'vgchange'
+	check_exit \
+		"${rc}" \
+		"vgchage: activate guest volume group" \
+		"vgchage: activate guest volume group" \
+		"fail" \
+		"${LINENO}"
+
+	#Mount Guest Logical Volume on mnt/vm_name/
+	mkdir "${mount_point}/";
+	mount "${mount_dev}" "${mount_point}/"
+	rc=$?
+	cleanup "${rc}" 'mount'
+	check_exit \
+		"${rc}" \
+		"mount ${mount_dev} ${mount_point}/" \
+		"mount ${mount_dev} ${mount_point}/" \
+		"fail" \
+		"${LINENO}"
+
+	#Guest disk is now mounted:
+	#Starting network configuration
+	case "${distro}" in
+		'centos')
+			configure_network_centos
+			;;
+		'redhat')
+			log 'msg' 'No configuration found.'
+			;;
+		'debian')
+			log 'msg' 'No configuration found.'
+			;;
+		'ubuntu')
+			log 'msg' 'No configuration found.'
+			;;
+	esac
+
+	#Network Configuration and other operations are over:
+	#Starting: umount guest disk and remove dom0 link
+	umount "${mount_point}/" &&  rmdir "${mount_point}/"
+	check_exit \
+		"$?" \
+		"umount & rm directory -> ${mount_point}/" \
+		"umount & rm directory -> ${mount_point}/" \
+		"fail" \
+		"${LINENO}"
+
+	#Deactivate Logical Volume and Volume group
+    vgchange -an "${vgflag}" --config global{metadata_read_only=0} > /dev/null 2>&1
+    check_exit \
+		"$?" \
+		"vgchange deactivate volumgroup" \
+		"vgchange deactivate volumgroup" \
+		"fail" \
+		"${LINENO}"
+
+	#Kpartx -d (remove partitioning on device)
+    /sbin/kpartx -dv "/dev/${device}" > /dev/null 2>&1
+    check_exit \
+		"$?" \
+		"Remove partitioning on device, ${device}" \
+		"Remove partitioning on device, ${device}" \
+		"fail" \
+		"${LINENO}"
+    
+    xe vbd-unplug uuid="${new_vbd_uuid}" && \
+    xe vbd-destroy uuid="${new_vbd_uuid}"
+	check_exit \
+		"$?" \
+		"unnplug and destroy the new_vbd ${new_vbd_uuid}" \
+		"unnplug and destroy the new_vbd ${new_vbd_uuid}" \
+		"fail" \
+		"${LINENO}"
+	
+	#Setup VM description
+	xe vm-param-set \
+	name-description="$ip_address#$mac_address" \
+	uuid="${vm_uuid}"
+    check_exit \
+		"$?" \
+		"Setup new name ${vm_uuid}" \
+		"unnplug and destroy the new_vbd ${new_vbd_uuid}" \
+		"fail" \
+		"${LINENO}"
+
+	#Rename disks with vm_name and disk position
+    for vdi_uuid in $(xe vbd-list vm-uuid=${vm_uuid} | grep -v "not in database" | grep "vdi-uuid ( RO):" | awk {'print $4'}); do
+        xe vdi-param-set name-label="${vm_name}_${count}" uuid="${vdi_uuid}";
+        count=$(( ${count} + 1 ));
+    done
+    
+	#Success output to integrate with Ansible
+	changed=true
+    msg="ip address: ${ip_address}"
+    printf '{"changed": %s, "msg": "%s"}' "${changed}" "${msg}"
+}
