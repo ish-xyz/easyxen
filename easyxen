@@ -16,8 +16,8 @@ function main() {
 	check_state
 	check_exit \
 		"$?" \
-		"get automation state." \
-		"get automation state. ${state}" \
+		"Check&Get parameter 'state'." \
+		"Check&Get parameter 'state' ${state}" \
 		"fail" \
 		"${LINENO}"
 

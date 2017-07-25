@@ -7,7 +7,7 @@
 #################################################
 
 function present() {
-	##Create VM and setup as the desidered state.
+	##Create VM and setup as the desidered state. (Non-Idempotent)
 	##
 
 	#Initialize variables
