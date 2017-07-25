@@ -37,10 +37,11 @@ cat <<____EOF____
 TODO:
 reconfigure.sh -> TODO
 present.sh -> Private key and authentication management [WIP]
+prenset.sh -> Add userdata option. [WIP]
 present.sh -> Handle multiple vif (hardware & OS configuration).
 @all -> Testing remote execution.
 	present.sh -> Image download and cache on the XEN system
-prenset.sh -> Add userdata option. [WIP]
+
 present.sh -> Rimozione vif vecchie in present.sh
 absent.sh -> Add keep disks feature.
 Lint and syntax check script.

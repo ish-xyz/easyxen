@@ -15,30 +15,36 @@ function present() {
 	count=0
 	vgflag="vgroot"
     mount_point="/mnt/$vm_name";
-    mount_dev="/dev/${vgflag}/root"
+    mount_dev="/dev/${vgflag}/root";
+    tmp_pass="easyxen${RANDOM}${RANDOM}${RANDOM}";
    
     function ansible_usage() {
     	#Usage function, help
 		cat <<____EOF____
 - name: "Xen provisioning new machine"
   easyxen:
-    state: present 											* REQUIRED
-    vm_name: worker2 										* REQUIRED
-    cpu: 1 													* REQUIRED
-    ram: 512 												* REQUIRED
-    mac_address: 00:0c:29:6f:5d:c3  						(optional) - default = automatically generated
-    image: base.xva											* REQUIRED
-    ip_address: 192.168.1.170 								* REQUIRED
-    gateway: 192.168.1.1 									* REQUIRED
-    netmask: 255.255.255.0 									(optional) - default = 255.255.255.0
-    broadcast: 192.168.1.255 								(optional) - default = {{ ip_address }}.255
-    dns1: 192.168.1.126 									(optional) - default = 8.8.8.8
-    dns2: 192.168.1.127 									(optional) - default = 8.8.4.4
-    disk_to_mount: 0 										* REQUIRED
-    distro: centos					 						* REQUIRED
-    network_file: '{network_path}/ifcfg-eth0' 				(optional) - default defined by OS distro.
-    public_key: 'id_rsa.pub (raw key)'						* REQUIRED
-    after_configuration: halt/run 							(optional) - default = run
+    state: present 									* REQUIRED
+    vm_name: worker2 								* REQUIRED
+    cpu: 1 											* REQUIRED
+    ram: 512 										* REQUIRED
+    mac_address: 00:0c:29:6f:5d:c3  				(optional) - default = automatically generated
+    image: base.xva									* REQUIRED
+    ip_address: 192.168.1.170 						* REQUIRED
+    gateway: 192.168.1.1 							* REQUIRED
+    netmask: 255.255.255.0 							(optional) - default = 255.255.255.0
+    broadcast: 192.168.1.255 						(optional) - default = {{ ip_address }}.255
+    dns1: 192.168.1.126 							(optional) - default = 8.8.8.8
+    dns2: 192.168.1.127 							(optional) - default = 8.8.4.4
+    disk_to_mount: 0 								* REQUIRED
+    distro: centos					 				* REQUIRED
+    network_file: '{network_path}/ifcfg-eth0' 		(optional) - default defined by OS distro.
+    pub_key: 	'id_rsa.pub (raw key)'				* REQUIRED
+    os_user: 										(optional) - default = easyxen
+    *playbook: 										(optional) - default = none *Playbook to run on the instance after the boot.
+    *userdata:										(optional) - default = none	
+      - role: web
+      - env: dev
+      - custom: value
 
 ____EOF____
 	}
@@ -100,7 +106,7 @@ ARP=yes" > "${mount_point}${network_file}";
 
 		echo "$vm_name" > "${mount_point}/etc/hostname"
 		echo "127.0.0.1 $vm_name" >> "${mount_point}/etc/hosts"
-		mkdir "${mount_point}/root/.ssh" && echo "$public_key" > "${mount_point}/root/.ssh/authorized_keys"
+
 	}
 
 
@@ -128,7 +134,6 @@ ARP=yes" > "${mount_point}${network_file}";
 
 		echo "$vm_name" > "${mount_point}/etc/hostname"
 		echo "127.0.0.1 $vm_name" >> "${mount_point}/etc/hosts"
-		mkdir "${mount_point}/root/.ssh" && echo "$public_key" > "${mount_point}/root/.ssh/authorized_keys"
 	}
 
 
@@ -149,7 +154,8 @@ ARP=yes" > "${mount_point}${network_file}";
 		'ip_address' \
 		'disk_to_mount' \
 		'distro' \
-		'public_key' \
+		'pub_key' \
+		'os_user' \
 		'image'
 
 
@@ -409,15 +415,40 @@ ARP=yes" > "${mount_point}${network_file}";
 			configure_network_centos
 			;;
 		'redhat')
-			log 'msg' 'No configuration found.'
+			configure_network_redhat
 			;;
 		'debian')
-			log 'msg' 'No configuration found.'
+			configure_network_debian
 			;;
 		'ubuntu')
-			log 'msg' 'No configuration found.'
+			configure_network_ubuntu
+			;;
+		*)
+			log 'exit' "The selected distro ${distro} doesnt have any network configuration" "{LINENO}" 
 			;;
 	esac
+
+	#STARTING WITH THE BASIC OS CONFIGURATIONS
+	#Push script to add user
+	##
+
+	#Setup Shadow file for TEMP root login
+	tmp_pass_shadow=$(python -c "import crypt; print crypt.crypt(\"${tmp_pass}\")")
+	cur_pass_shadow=$(cat /etc/shadow | grep ^root | awk -F ':' {'print $2'})
+
+	sed -i "s#${tmp_pass}#${cur_pass_shadow}#g" "${mount_point}/etc/shadow"
+
+	#Disable Selinux
+	##
+	sed -i 's#enforcing#disabled#g' "${mount_point}/etc/selinux/config"
+	check_exit \
+		"$?" \
+		"Disable selinux." \
+		"Disable selinux -> ${mount_point}/etc/selinux/config" \
+		"fail" \
+		"${LINENO}"
+
+
 
 	#Network Configuration and other operations are over:
 	#Starting: umount guest disk and remove dom0 link
@@ -469,10 +500,28 @@ ARP=yes" > "${mount_point}${network_file}";
 
 	#Rename disks with vm_name and disk position
     for vdi_uuid in $(xe vbd-list vm-uuid=${vm_uuid} | grep -v "not in database" | grep "vdi-uuid ( RO):" | awk {'print $4'}); do
-        xe vdi-param-set name-label="${vm_name}_${count}" uuid="${vdi_uuid}";
+        xe vdi-param-set name-label="${vm_name}#${count}" uuid="${vdi_uuid}";
         count=$(( ${count} + 1 ));
     done
     
+    #Start and halt VM to attach the os customization
+    xe vm-start uuid="${vm_uuid}" > /dev/null 2>&1
+    check_exit \
+		"$?" \
+		"Start VM to take the OS configuration." \
+		"Start VM to take the OS configuration." \
+		"fail" \
+		"${LINENO}"
+
+	log 'msg' "${tmp_pass}"
+	#Perform security operations and OS setup
+	#sshpass -p ""
+	#SSH enter in the machine as root
+	#Create user
+	#Put key on user
+	#Make user a sudoers
+	#Disable ssh login root and pass
+
 	#Success output to integrate with Ansible
 	changed=true
     msg="ip address: ${ip_address}"
