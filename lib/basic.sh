@@ -54,23 +54,6 @@ function get_vm_uuid() {
 	fi
 }
 
-function check_exit() {
-	## Usage: After a command run --> 
-	## check_exit "$?" "{{ success_message }}" "{{ error_message }}" 
-	## "fail/warn" "${LINENO}"
-
-	if [[ "$1" == "0" ]]; then
-		log 'msg' "OK: $2"
-	elif [[ "$4" == "warn" ]]; then
-		log 'msg' "WARN: $3"
-	elif [[ "$4" == "fail" ]]; then
-		log 'exit' "FAIL: $3 exit_code: $5"
-	else
-		echo "You are not using the check_exit function properly."
-		exit 1
-	fi
-}
-
 function log() {
 	## Log function
 	## Stdout and append to the ${LOG_FILE} defined in the
@@ -92,6 +75,24 @@ function log() {
 	fi
 }
 
+function check_exit() {
+	## Usage: After a command run --> 
+	## check_exit "$?" "{{ success_message }}" "{{ error_message }}" 
+	## "fail/warn" "${LINENO}"
+
+	if [[ "$1" == "0" ]]; then
+		log 'msg' "OK: $2"
+	elif [[ "$4" == "warn" ]]; then
+		log 'msg' "WARN: $3"
+	elif [[ "$4" == "fail" ]]; then
+		log 'exit' "FAIL: $3 exit_code: $5"
+	else
+		log 'exit' 'You are not using the check_exit function properly.' "${LINENO}"
+	fi
+}
+
+
+
 function check_params() {
 	## Function to check parameters 
 	## passed as arguments
@@ -106,9 +107,9 @@ function check_params() {
     if [[ -n "${image}" ]]; then
 
 	    if [[ -f "${IMAGES_REPO}/${image}" ]]; then
-	        log 'msg'  "OK: IMAGE exist.";
+	        log 'msg'  'OK: IMAGE exist.';
 	    else
-	        log 'exit'  "FAIL: IMAGE does not exist.";
+	        log 'exit'  'FAIL: IMAGE does not exist.' "${LINENO}";
 	    fi
 	fi
 }

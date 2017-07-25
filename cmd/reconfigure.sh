@@ -8,7 +8,7 @@ function reconfigure() {
 	##Reconfigure virtual machines (Idempotent)
 	##
 
-	function usage() {
+	function ansible_usage() {
     	#Usage function, help
 		cat <<____EOF____
 - name: "Reconfigure XEN vm."
@@ -20,7 +20,6 @@ function reconfigure() {
       - position: 0
         size: 20G
        	label: "{{ vm_name }}_disk_0"
-
 
 ____EOF____
 	}

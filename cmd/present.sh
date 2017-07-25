@@ -17,7 +17,7 @@ function present() {
     mount_point="/mnt/$vm_name";
     mount_dev="/dev/${vgflag}/root"
    
-    function usage() {
+    function ansible_usage() {
     	#Usage function, help
 		cat <<____EOF____
 - name: "Xen provisioning new machine"
@@ -164,7 +164,28 @@ ARP=yes" > "${mount_point}${network_file}";
 
 	#Network file to the network configuration on the guest.
 	[[ -z "${network_file}" ]] && \
-		network_file='/etc/sysconfig/network-scripts/ifcfg-eth0'
+		case "${distro}" in
+			'centos')
+				network_file='/etc/sysconfig/network-scripts/ifcfg-eth0'
+			;;
+
+			'redhat')
+				network_file='/etc/sysconfig/network-scripts/ifcfg-eth0'
+			;;
+
+			'ubuntu')
+				network_file='/etc/network/interfaces'
+			;;
+
+			'debian')
+				network_file='/etc/network/interfaces'
+			;;
+
+			*)
+				log 'exit' 'No default configuration found for the current VM' "${LINENO}"
+			;;
+		esac
+		
 
 	#After the machine is configured (halt or run, default=run)
 	[[ -z "${after_configuration}" ]] && \

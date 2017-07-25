@@ -8,7 +8,7 @@ function absent() {
 	##Remove virtual machines (Idempotent)
 	##
 
-	function usage() {
+	function ansible_usage() {
     	#Usage function, help
 		cat <<____EOF____
 - name: "Xen Remoev VM"
