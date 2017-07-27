@@ -111,37 +111,42 @@ ____EOF____
 		[[ ${actual_cpu} != ${cpu} ]] || \
 		[[ ${actual_disks} != ${major_disk} ]] || \
 		[[ ${disk_size_changes} == true ]] ; then
-			#Shutdown the VM.
-			xe vm-shutdown uuid="${vm_uuid}"
-			check_exit \
-				"$?" \
-				"Shutdown VM, ready to be reconfigured." \
-				"Shutting down VM." \
-				"fail" \
-				"${LINENO}"
+			
+			get_vm_current_status=$(xe vm-list uuid=${vm_uuid} \
+				params=power-state  | awk {'print $5'});
+			if [[ "${get_vm_uuid}" == 'running' ]]; then
+				#Shutdown the VM.
+				xe vm-shutdown uuid="${vm_uuid}"
+				check_exit \
+					"$?" \
+					"Shutdown VM, ready to be reconfigured." \
+					"Shutting down VM." \
+					"fail" \
+					"${LINENO}"
+			fi
 
-		[[ ${actual_ram} != ${ram} ]] && \
-			#Setup RAM value for the new VM.
-			xe vm-memory-limits-set uuid="${vm_uuid}" \
-			static-min="${ram}MiB" dynamic-min="${ram}MiB" \
-			static-max="${ram}MiB" dynamic-max="${ram}MiB"
-			check_exit \
-				"$?" \
-				"setup static memory." \
-				"setup static memory, value: ${ram}" \
-				"fail" \
-				"${LINENO}"
-
-		[[ ${actual_cpu} != ${cpu} ]] && \
-			#Setup vCPU value for the new VM.
-			xe vm-param-set uuid="${vm_uuid}" \
-		    VCPUs-at-startup="1" VCPUs-max="${cpu}"
-			check_exit \
-				"$?" \
-				"setup static vCPU." \
-				"setup static vCPU: ${cpu}" \
-				"fail" \
-				"${LINENO}"
+			[[ ${actual_ram} != ${ram} ]] && \
+				#Setup RAM value for the new VM.
+				xe vm-memory-limits-set uuid="${vm_uuid}" \
+				static-min="${ram}MiB" dynamic-min="${ram}MiB" \
+				static-max="${ram}MiB" dynamic-max="${ram}MiB"
+				check_exit \
+					"$?" \
+					"setup static memory." \
+					"setup static memory, value: ${ram}" \
+					"fail" \
+					"${LINENO}"
+		
+			[[ ${actual_cpu} != ${cpu} ]] && \
+				#Setup vCPU value for the new VM.
+				xe vm-param-set uuid="${vm_uuid}" \
+			    VCPUs-at-startup="${cpu}" VCPUs-max="${cpu}"
+				check_exit \
+					"$?" \
+					"setup static vCPU." \
+					"setup static vCPU: ${cpu}" \
+					"fail" \
+					"${LINENO}"
 
 		#[[ ${actual_disks} != ${major_disk} ]] || \
 			#
