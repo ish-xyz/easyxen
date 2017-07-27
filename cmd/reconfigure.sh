@@ -31,7 +31,8 @@ ____EOF____
 		'vm_name' \
 		'cpu' \
 		'ram' \
-		'disk_0'
+		'disk_0' \
+		'pub_key'
 
 	for n in {0..12}; do
 		current_value=$(eval echo "\$disk_${n}");
@@ -39,8 +40,8 @@ ____EOF____
 			major_disk="${n}"
 		fi
 	done
-
-	log "msg" "The action reconfigure could shutdown your machine for a moment"
+	log "msg" "OK: Desidered values are: ram -> ${ram} | cpu -> ${cpu} | disk_number -> ${major_disk}"
+	log "msg" "MSG: The action reconfigure could shutdown your machine for a moment"
 
 	##Get vm_uuid by name
 	vm_uuid=$(get_vm_uuid "${vm_name}");
@@ -67,8 +68,8 @@ ____EOF____
 		awk {'print $5'} | sed '/^\s*$/d') / 1024 / 1024 ));
 	check_exit \
 		"$?" \
-		"Actual RAM value is: ${actual_cpu}" \
-		"Get actual RAM value -> ${actual_cpu}" \
+		"Actual RAM value is: ${actual_ram}" \
+		"Get actual RAM value -> ${actual_ram}" \
 		"fail" \
 		"${LINENO}"
 
@@ -104,17 +105,17 @@ ____EOF____
 		fi
 	done
 
-	##Shutdown action
-	##
-	if [[ ${actual_ram} != ${ram} ]] || \
+	##Perform Shutdown action only \
+		##if something is changed
+	if  [[ ${actual_ram} != ${ram} ]] || \
 		[[ ${actual_cpu} != ${cpu} ]] || \
 		[[ ${actual_disks} != ${major_disk} ]] || \
 		[[ ${disk_size_changes} == true ]] ; then
 			xe vm-shutdown uuid="${vm_uuid}"
 			check_exit \
 				"$?" \
-				"Shutdown VM to be reconfigured." \
-				"Shutdown VM to be reconfigured." \
+				"Shutdown VM, ready to be reconfigured." \
+				"Shutting down VM." \
 				"fail" \
 				"${LINENO}"
 	else
