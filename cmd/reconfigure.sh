@@ -88,20 +88,21 @@ ____EOF____
 	##Check disks size
 	##
 	for x in $(seq 0 ${major_disk}); do
-		cur_disk_raw_size=$($(xe vm-disk-list uuid="${vm_uuid}" | 
+		raw_size=$(xe vm-disk-list uuid="${vm_uuid}" | 
 			grep "${x} VDI:" -A 4 | 
 			grep 'virtual-size' | 
-			awk {'print $4'}));
-		echo ${cur_disk_raw_size}
-		if [[ -n ${cur_disk_raw_size} ]]; then
-			cur_disk_size=$(( ${cur_disk_raw_size} / 1024 / 1024 / 1024 ));
+			awk {'print $4'});
+
+		if [[ -n ${raw_size} ]]; then
+			cur_disk_size=$(( ${raw_size} / 1024 / 1024 / 1024 ));
 			desidered_size=$(eval echo "\$disk_${x}");
-			echo "${desidered_size} ${cur_disk_size}"
+			if [[ "${desidered_size}" != "${cur_disk_size}" ]]; then
+				disk_size_changes=true
+			fi
 		else
 			disk_size_changes=true
 		fi
 	done
-	exit
 
 	##Shutdown action
 	##
