@@ -560,7 +560,8 @@ ARP=yes" > "${mount_point}${network_file}";
 		chmod 600 /home/${os_user}/.ssh/authorized_keys && \
 		sed -i 's/#PermitRootLogin yes/#PermitRootLogin no/g' /etc/ssh/sshd_config && \
 		sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config && \
-		echo \"${os_user}  ALL=NOPASSWD: ALL\" >> '/etc/sudoers'"
+		echo \"${os_user}  ALL=NOPASSWD: ALL\" >> '/etc/sudoers' && \
+		chown -R ${os_user}:${os_user} /home/${os_user}/.ssh/"
 
 	#Success output to integrate with Ansible
 	changed=true
