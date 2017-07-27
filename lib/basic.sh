@@ -41,6 +41,9 @@ function vm_name_available() {
 }
 
 function get_vm_uuid() {
+	## Function to return the VM UUID by name
+	## if the first argument is not specified exit
+
 	if [[ -z "$1" ]]; then
 		log 'exit' 'Error no vm_name passed'
 	else
@@ -58,6 +61,7 @@ function log() {
 	## Log function
 	## Stdout and append to the ${LOG_FILE} defined in the
 	## initialize_vars function.
+
 	if [[ ${DEBUG} == 0 ]]; then
 		if [[ "$1" == "msg" ]]; then
 			echo "$2" >> "${LOG_FILE}"
@@ -115,7 +119,9 @@ function check_params() {
 }
 
 function check_state() {
-	##Check if the state exist 
+	##Check if the state defined exist
+	## if not exit
+
 	case "${state}" in
 		'absent')
 			log "msg" "Operation selected is ${state}"

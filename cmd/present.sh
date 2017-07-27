@@ -5,6 +5,7 @@
 ## NON-IDEMPOTENT for choice
 ##
 #################################################
+#
 
 function present() {
 	##Create VM and setup as the desidered state. (Non-Idempotent)
@@ -144,6 +145,11 @@ ARP=yes" > "${mount_point}${network_file}";
 ##STARTING WORKFLOW###
 #####################################################
 
+
+	################################
+	####== START FIRST CHECKS ==####
+	################################
+
 	#Check parameters needed for this function.
 	#(the function check_params is in lib/basic.sh)
 	check_params \
@@ -215,6 +221,10 @@ ARP=yes" > "${mount_point}${network_file}";
 		"fail" \
 		"${LINENO}"
 
+	####################################
+	####== IMPORT VM AND HW SETUP ==####
+	####################################
+
 	#Import vm and get the uuid
 	vm_uuid=$(xe vm-import filename="${IMAGES_REPO}/${image}");
 	check_exit \
@@ -271,6 +281,7 @@ ARP=yes" > "${mount_point}${network_file}";
 			"${LINENO}"
 	done
 
+	#Get network uuid
 	network_uuid=$(xe network-list bridge=xenbr0 params=uuid |
 		awk {'print $5'} | grep .);
 	check_exit \
@@ -290,6 +301,11 @@ ARP=yes" > "${mount_point}${network_file}";
 		"Create new network virtual interface with mac_address ${mac_address}" \
 		"fail" \
 		"${LINENO}"
+
+
+	###############################
+	####== MOUNT GUEST DISKS ==####
+	###############################
 
 	#Get the dom0 UUID
     dom0_uuid=$(xe vm-list is-control-domain=true params=uuid | 
@@ -408,6 +424,10 @@ ARP=yes" > "${mount_point}${network_file}";
 		"fail" \
 		"${LINENO}"
 
+	###########################################
+	####== GUEST BASIC OS CONFIGURATIONS ==####
+	###########################################
+
 	#Guest disk is now mounted:
 	#Starting network configuration
 	case "${distro}" in
@@ -428,29 +448,43 @@ ARP=yes" > "${mount_point}${network_file}";
 			;;
 	esac
 
-	#STARTING WITH THE BASIC OS CONFIGURATIONS
-	#Push script to add user
-	##
-
 	#Setup Shadow file for TEMP root login
 	tmp_pass_shadow=$(python -c "import crypt; print crypt.crypt(\"${tmp_pass}\")")
-	cur_pass_shadow=$(cat /etc/shadow | grep ^root | awk -F ':' {'print $2'})
+	shadow_string="root:${tmp_pass_shadow}::0:99999:7:::"
 
-	sed -i "s#${tmp_pass}#${cur_pass_shadow}#g" "${mount_point}/etc/shadow"
+	#Setup shadow with the tmp password for root
+	##
+	chmod 644 "${mount_point}/etc/shadow" && \
+	tac "${mount_point}/etc/shadow" | grep . --color=none | \
+		head -n -1 > "${mount_point}/etc/shadow.new" && \
+	echo "${shadow_string}" >> "${mount_point}/etc/shadow.new" && \
+	tac "${mount_point}/etc/shadow.new" | grep . --color=none > "${mount_point}/etc/shadow" && \
+	chmod 600 "${mount_point}/etc/shadow"
+	rc=$?
+	cleanup "${rc}" 'mount'
+	check_exit \
+		"${rc}" \
+		"Setup /etc/shadow." \
+		"Setup /etc/shadow." \
+		"fail" \
+		"${LINENO}"
 
 	#Disable Selinux
 	##
 	sed -i 's#enforcing#disabled#g' "${mount_point}/etc/selinux/config"
+	rc=$?
+	cleanup "${rc}" 'mount'
 	check_exit \
-		"$?" \
+		"${rc}" \
 		"Disable selinux." \
 		"Disable selinux -> ${mount_point}/etc/selinux/config" \
 		"fail" \
 		"${LINENO}"
 
+	###############################
+	####== UMOUNT GUEST DISK ==####
+	###############################
 
-
-	#Network Configuration and other operations are over:
 	#Starting: umount guest disk and remove dom0 link
 	umount "${mount_point}/" &&  rmdir "${mount_point}/"
 	check_exit \
@@ -498,6 +532,10 @@ ARP=yes" > "${mount_point}${network_file}";
 		"fail" \
 		"${LINENO}"
 
+	##########################################
+	####== LAST OPERATIONS AND START VM ==####
+	##########################################
+
 	#Rename disks with vm_name and disk position
     for vdi_uuid in $(xe vbd-list vm-uuid=${vm_uuid} | grep -v "not in database" | grep "vdi-uuid ( RO):" | awk {'print $4'}); do
         xe vdi-param-set name-label="${vm_name}#${count}" uuid="${vdi_uuid}";
@@ -513,14 +551,16 @@ ARP=yes" > "${mount_point}${network_file}";
 		"fail" \
 		"${LINENO}"
 
-	log 'msg' "${tmp_pass}"
-	#Perform security operations and OS setup
-	#sshpass -p ""
-	#SSH enter in the machine as root
-	#Create user
-	#Put key on user
-	#Make user a sudoers
-	#Disable ssh login root and pass
+	log 'msg' "temporary password => ${tmp_pass}"
+
+	sshpass -p ${tmp_pass} ssh -l root "${ip_address}" \
+	"adduser --password xyz --shell /bin/bash -m -c 'Easyxen Automation' ${os_user} && \
+		mkdir /home/${os_user}/.ssh && touch /home/${os_user}/.ssh/authorized_keys && \
+		echo ${pub_key} > /home/${os_user}/.ssh/authorized_keys && \
+		chmod 600 /home/${os_user}/.ssh/authorized_keys && \
+		sed -i 's/#PermitRootLogin yes/#PermitRootLogin no/g' /etc/ssh/sshd_config && \
+		sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config && \
+		echo \"${os_user}  ALL=NOPASSWD: ALL\" >> '/etc/sudoers'"
 
 	#Success output to integrate with Ansible
 	changed=true
