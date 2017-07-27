@@ -20,10 +20,10 @@ function vm_exist() {
 	##Simple check if the vm passed in 
 	##the parameters exist or not
 	
-    get_vm=$(xe vm-list name-label=$1);
-    if [ -n "${get_vm}" ]; then
-        return 0
-    else
+	get_vm=$(xe vm-list name-label=$1);
+	if [ -n "${get_vm}" ]; then
+		return 0
+	else
         return 1
     fi
 }
@@ -48,8 +48,8 @@ function get_vm_uuid() {
 		log 'exit' 'Error no vm_name passed'
 	else
 		vm_uuid_count=$(xe vm-list name-label="$1" params=uuid | awk {'print $5'} | sed '/^\s*$/d' | wc -l);
-		if [[ ${vm_uuid_count} -gt 1 ]]; then
-			log 'exit' 'Error too much vm match with the same name.'
+		if [[ ${vm_uuid_count} != 1 ]]; then
+			return 1
 		else
 			vm_uuid=$(xe vm-list name-label="$1" params=uuid | awk {'print $5'} | sed '/^\s*$/d')
 			echo "${vm_uuid}"
