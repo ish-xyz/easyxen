@@ -562,8 +562,14 @@ ARP=yes" > "${mount_point}${network_file}";
 		sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config && \
 		echo \"${os_user}  ALL=NOPASSWD: ALL\" >> '/etc/sudoers' && \
 		chown -R ${os_user}:${os_user} /home/${os_user}/.ssh/"
+    check_exit \
+		"$?" \
+		"Configure OS guest user and security basics." \
+		"Configure OS guest user and security basics." \
+		"fail" \
+		"${LINENO}"
 
-	#Success output to integrate with Ansible
+	##Success output to integrate with Ansible
 	changed=true
     msg="ip address: ${ip_address}"
     printf '{"changed": %s, "msg": "%s"}' "${changed}" "${msg}"
