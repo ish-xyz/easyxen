@@ -31,34 +31,4 @@ function main() {
 	${state}
 }
 
-## Temp todo list (script.sh todo)
-if [ "$1" == "todo" ]; then
-
-cat <<____EOF____
-TODO:
-present.sh -> Medda Contributor, 
-reconfigure.sh -> TODO
-present.sh -> Private key and authentication management [WIP]
-prenset.sh -> Add userdata option. [WIP]
-present.sh -> Handle multiple vif (hardware & OS configuration).
-@all -> Testing remote execution.
-	present.sh -> Image download and cache on the XEN system
-
-present.sh -> Rimozione vif vecchie in present.sh
-absent.sh -> Add keep disks feature.
-Lint and syntax check script.
-	#Controllo lunghezza righe
-	#Controllo variabili {}
-	#Controllo parentesi quadre su if
-	#Controllo docstring sulle funzioni
-present.sh -> Create configuration per distro.
-Create guideline and script to build base images.
-@all -> Create script to check syntax and lint of the module like pylint.
-present.sh -> Add DHCP option.
-@all -> Output for ansible
-present.sh -> custom DNS (optional).
-____EOF____
-	exit 0
-fi
-
 main
