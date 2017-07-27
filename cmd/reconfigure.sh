@@ -6,7 +6,7 @@
 
 function reconfigure() {
 	##Reconfigure virtual machines (Idempotent)
-	##
+	##NOTE: The Shrink function will be not released in the first version of the module.
 
 	function ansible_usage() {
   #Usage function, help
@@ -52,6 +52,7 @@ ____EOF____
 		"${LINENO}"
 
 	##Get actual values CPU
+	##
 	actual_cpu=$(xe vm-param-get uuid=${vm_uuid} param-name=VCPUs-max);
 	check_exit \
 		"$?" \
@@ -61,6 +62,7 @@ ____EOF____
 		"${LINENO}"
 
 	##Get actual values RAM
+	##
 	actual_ram=$(( $(xe vm-list params=memory-static-max uuid=${vm_uuid} |
 		awk {'print $5'} | sed '/^\s*$/d') / 1024 / 1024 ));
 	check_exit \
@@ -71,6 +73,7 @@ ____EOF____
 		"${LINENO}"
 
 	##Get actual values DISKS N
+	##
 	actual_disks=$(xe vm-disk-list uuid=${vm_uuid} |
 		grep userdevice  | rev |
 		awk {'print $1'} | rev |
@@ -81,26 +84,36 @@ ____EOF____
 		"Get actual disks number -> ${actual_disks}" \
 		"fail" \
 		"${LINENO}"
-	exit
+
 	##Check disks size
+	##
 	for x in $(seq 0 ${major_disk}); do
-		cur_disk_size=$(( $(xe vm-disk-list uuid="${vm_uuid}" | 
+		cur_disk_raw_size=$($(xe vm-disk-list uuid="${vm_uuid}" | 
 			grep "${x} VDI:" -A 4 | 
 			grep 'virtual-size' | 
-			awk {'print $4'}) / 1024 / 1024 / 1024 ));
-		desidered_size=$(eval echo "\$disk_${x}");
-		echo $
+			awk {'print $4'}));
+		echo ${cur_disk_raw_size}
+		if [[ -n ${cur_disk_raw_size} ]]; then
+			cur_disk_size=$(( ${cur_disk_raw_size} / 1024 / 1024 / 1024 ));
+			desidered_size=$(eval echo "\$disk_${x}");
+			echo "${desidered_size} ${cur_disk_size}"
+		else
+			disk_size_changes=true
+		fi
 	done
+	exit
 
 	##Shutdown action
+	##
 	if [[ ${actual_ram} != ${ram} ]] || \
 		[[ ${actual_cpu} != ${cpu} ]] || \
-		[[ ${actual_disks} != ${major_disk} ]]; then
+		[[ ${actual_disks} != ${major_disk} ]] || \
+		[[ ${disk_size_changes} == true ]] ; then
 			xe vm-shutdown uuid="${vm_uuid}"
 			check_exit \
 				"$?" \
-				"Get vm uuid by name" \
-				"Get vm uuid by name" \
+				"Shutdown VM to be reconfigured." \
+				"Shutdown VM to be reconfigured." \
 				"fail" \
 				"${LINENO}"
 	else
