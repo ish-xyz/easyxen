@@ -97,7 +97,7 @@ ____EOF____
 		if [[ -n ${raw_size} ]]; then
 			cur_disk_size=$(( ${raw_size} / 1024 / 1024 / 1024 ));
 			desidered_size=$(eval echo "\$disk_${x}");
-			if [[ "${desidered_size}" != "${cur_disk_size}" ]]; then
+			if [[ "${desidered_size}" -gt "${cur_disk_size}" ]]; then
 				disk_size_changes=true
 			fi
 		else
@@ -111,6 +111,7 @@ ____EOF____
 		[[ ${actual_cpu} != ${cpu} ]] || \
 		[[ ${actual_disks} != ${major_disk} ]] || \
 		[[ ${disk_size_changes} == true ]] ; then
+			#Shutdown the VM.
 			xe vm-shutdown uuid="${vm_uuid}"
 			check_exit \
 				"$?" \
@@ -118,6 +119,33 @@ ____EOF____
 				"Shutting down VM." \
 				"fail" \
 				"${LINENO}"
+
+		[[ ${actual_ram} != ${ram} ]] && \
+			#Setup RAM value for the new VM.
+			xe vm-memory-limits-set uuid="${vm_uuid}" \
+			static-min="${ram}MiB" dynamic-min="${ram}MiB" \
+			static-max="${ram}MiB" dynamic-max="${ram}MiB"
+			check_exit \
+				"$?" \
+				"setup static memory." \
+				"setup static memory, value: ${ram}" \
+				"fail" \
+				"${LINENO}"
+
+		[[ ${actual_cpu} != ${cpu} ]] && \
+			#Setup vCPU value for the new VM.
+			xe vm-param-set uuid="${vm_uuid}" \
+		    VCPUs-at-startup="1" VCPUs-max="${cpu}"
+			check_exit \
+				"$?" \
+				"setup static vCPU." \
+				"setup static vCPU: ${cpu}" \
+				"fail" \
+				"${LINENO}"
+
+		#[[ ${actual_disks} != ${major_disk} ]] || \
+			#
+
 	else
 		#No action required, no changes.
 		changed=false
