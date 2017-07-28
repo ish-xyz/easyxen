@@ -172,10 +172,6 @@ ____EOF____
 					"${LINENO}"
 			fi
 
-			echo "==========================="
-			echo ${actual_disks} ${major_disk}
-			echo "==========================="
-			
 			if [[ ${actual_disks} -gt ${major_disk} ]]; then
 				#REMOVE disks
 
