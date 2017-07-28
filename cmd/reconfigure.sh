@@ -136,8 +136,10 @@ ____EOF____
 			
 			get_vm_current_status=$(xe vm-list uuid=${vm_uuid} \
 				params=power-state  | awk {'print $5'});
-			if [[ "${get_vm_uuid}" == 'running' ]]; then
-				#Shutdown the VM.
+
+			#Shutdown the VM if something is changed
+			if [[ "${get_vm_current_status}" == "running" ]]; then
+
 				xe vm-shutdown uuid="${vm_uuid}"
 				check_exit \
 					"$?" \
@@ -147,6 +149,7 @@ ____EOF____
 					"${LINENO}"
 			fi
 
+			#Setup CPU as the desidered state
 			if [[ ${actual_ram} != ${ram} ]]; then
 				#Setup RAM value for the new VM.
 				xe vm-memory-limits-set uuid="${vm_uuid}" \
@@ -160,8 +163,8 @@ ____EOF____
 					"${LINENO}"
 			fi
 
+			#Setup CPU as the desidered state
 			if [[ ${actual_cpu} != ${cpu} ]]; then
-				#Setup vCPU value for the new VM.
 				xe vm-param-set uuid="${vm_uuid}" \
 			    VCPUs-at-startup="${cpu}" VCPUs-max="${cpu}" > /dev/null 2>&1
 				check_exit \
@@ -172,9 +175,9 @@ ____EOF____
 					"${LINENO}"
 			fi
 
-			if [[ ${actual_disks} -gt ${major_disk} ]]; then
-				#REMOVE disks
 
+			#REMOVE disks as the desidered state
+			if [[ ${actual_disks} -gt ${major_disk} ]]; then
 				#Get how many disk we have to remove.
 				diff=$(( ${actual_disks} - ${major_disk} ));
 				ids=$(seq 0 ${actual_disks} | tail -n ${diff});
@@ -185,9 +188,9 @@ ____EOF____
 				done
 			fi
 
-			
+			#ADD disks as the desidered state
 			if [[ ${actual_disks} -lt ${major_disk} ]]; then
-				#ADD disks
+			
 
 				#Get how many disk we have to add.
 				diff=$(( ${major_disk} - ${actual_disks} ));
@@ -204,21 +207,29 @@ ____EOF____
 					#Start adding new disks
 					log 'msg' "MSG: Adding => disk_${id} | virtualsize => ${virtual_size}";
 
-					xe vm-disk-add \
-						name-label="${vm_name}#${id}" \
+					cur_vdi_uuid=$(xe vm-disk-add \
 						disk-size="${virtual_size}" \
 						sr-uuid="${sr_uuid}" \
 						vm="${vm_uuid}" \
-						device="autodetect" > /dev/null 2>&1
-
+						device="autodetect");
 					check_exit \
 						"$?" \
 						"Create VDI on sr ${sr_uuid}." \
 						"Create VDI on sr ${sr_uuid}." \
 						"fail" \
 						"${LINENO}"
+
+					xe vdi-param-set name-label="${vm_name}#${id}" uuid=${cur_vdi_uuid}
+					check_exit \
+						"$?" \
+						"VDI param setup 'name-label'" \
+						"VDI param setup 'name-label' => ${vm_name}#${id}" \
+						"fail" \
+						"${LINENO}"
 				done
 			fi
+
+
 
 	else
 		#No action required, no changes.
