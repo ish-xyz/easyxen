@@ -148,8 +148,24 @@ ____EOF____
 					"fail" \
 					"${LINENO}"
 
-		#[[ ${actual_disks} != ${major_disk} ]] || \
-			#
+			if [[ ${actual_disks} -gt ${major_disk} ]]; then
+				
+				#Get how many disk we have to remove.
+				diff=$(( ${actual_disks} - ${major_disk} ));
+				ids=$(seq 0 "${major_disk}" | tail -n ${diff});
+
+				#Print IDs
+				for id in ${ids}; do
+					echo ${id};
+				done
+			fi
+
+			if [[ ${actual_disks} -lt ${major_disk} ]]; then
+
+				#Get how many disk we have to add.
+				diff=$(( ${major_disk} - ${actual_disks} ));
+
+			fi
 
 	else
 		#No action required, no changes.
