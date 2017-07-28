@@ -17,6 +17,7 @@ function reconfigure() {
     vm_name: {{ vm_name }}    *REQUIRED
     cpu: 1                    *REQUIRED
     ram: 1024                 *REQUIRED
+    storage: 'Local storage'  *REQUIRED
     disk_0: 20                *REQUIRED
     disk_1: 10                *Optional (but must be incremental, limit: 12)
     pub_key:                  *REQUIRED
@@ -26,24 +27,46 @@ ____EOF____
 ##STARTING WORKFLOW###
 #####################################################
 
-	#Check parameters needed for this function.
+	##Check parameters needed for this function.
+	##
 	check_params \
 		'vm_name' \
 		'cpu' \
 		'ram' \
+		'storage' \
 		'disk_0' \
 		'pub_key'
 
-	for n in {0..12}; do
+	#Get Storage Resource uuid
+	sr_uuid=$(xe sr-list name-label="${storage}" params=uuid  | awk {'print $5'});
+	check_exit \
+		"$?" \
+		"Get Storage Resource uuid" \
+		"Get Storage Resource uuid -> ${sr_uuid}" \
+		"fail" \
+		"${LINENO}"
+
+
+	#Get desidered disks number
+	for n in {0..8}; do
 		current_value=$(eval echo "\$disk_${n}");
 		if [[ -n "${current_value}" ]]; then
 			major_disk="${n}"
 		fi
+		if [[ "${x}" -gt '7' ]]; then
+			log "exit" "you're trying to add too much disks."
+		fi
 	done
+
+	#Rebase start point to 1
+	major_disk=$(( ${major_disk} + 1 ))
+
+	#Service messages
 	log "msg" "OK: Desidered values are: ram -> ${ram} | cpu -> ${cpu} | disk_number -> ${major_disk}"
 	log "msg" "MSG: The action reconfigure could shutdown your machine for a moment"
 
 	##Get vm_uuid by name
+	##
 	vm_uuid=$(get_vm_uuid "${vm_name}");
 	check_exit \
 		"$?" \
@@ -76,9 +99,8 @@ ____EOF____
 	##Get actual values DISKS N
 	##
 	actual_disks=$(xe vm-disk-list uuid=${vm_uuid} |
-		grep userdevice  | rev |
-		awk {'print $1'} | rev |
-		sort  | tail -n 1);
+		grep userdevice | 
+		wc -l);
 	check_exit \
 		"$?" \
 		"Actual disks number is: ${actual_disks}" \
@@ -105,12 +127,12 @@ ____EOF____
 		fi
 	done
 
-	##Perform Shutdown action only \
-		##if something is changed
-	if  [[ ${actual_ram} != ${ram} ]] || \
-		[[ ${actual_cpu} != ${cpu} ]] || \
-		[[ ${actual_disks} != ${major_disk} ]] || \
-		[[ ${disk_size_changes} == true ]] ; then
+	##_Perform Shutdown action only \
+	##_if something is changed
+	if [[ "${actual_ram}" != "${ram}" ]] || \
+		[[ "${actual_cpu}" != "${cpu}" ]] || \
+		[[ "${actual_disks}" != "${major_disk}" ]] || \
+		[[ "${disk_size_changes}" == true ]]; then
 			
 			get_vm_current_status=$(xe vm-list uuid=${vm_uuid} \
 				params=power-state  | awk {'print $5'});
@@ -125,46 +147,81 @@ ____EOF____
 					"${LINENO}"
 			fi
 
-			[[ ${actual_ram} != ${ram} ]] && \
+			if [[ ${actual_ram} != ${ram} ]]; then
 				#Setup RAM value for the new VM.
 				xe vm-memory-limits-set uuid="${vm_uuid}" \
 				static-min="${ram}MiB" dynamic-min="${ram}MiB" \
-				static-max="${ram}MiB" dynamic-max="${ram}MiB"
+				static-max="${ram}MiB" dynamic-max="${ram}MiB" > /dev/null 2>&1
 				check_exit \
 					"$?" \
 					"setup static memory." \
 					"setup static memory, value: ${ram}" \
 					"fail" \
 					"${LINENO}"
-		
-			[[ ${actual_cpu} != ${cpu} ]] && \
+			fi
+
+			if [[ ${actual_cpu} != ${cpu} ]]; then
 				#Setup vCPU value for the new VM.
 				xe vm-param-set uuid="${vm_uuid}" \
-			    VCPUs-at-startup="${cpu}" VCPUs-max="${cpu}"
+			    VCPUs-at-startup="${cpu}" VCPUs-max="${cpu}" > /dev/null 2>&1
 				check_exit \
 					"$?" \
 					"setup static vCPU." \
 					"setup static vCPU: ${cpu}" \
 					"fail" \
 					"${LINENO}"
+			fi
 
+			echo "==========================="
+			echo ${actual_disks} ${major_disk}
+			echo "==========================="
+			
 			if [[ ${actual_disks} -gt ${major_disk} ]]; then
-				
+				#REMOVE disks
+
 				#Get how many disk we have to remove.
 				diff=$(( ${actual_disks} - ${major_disk} ));
-				ids=$(seq 0 "${major_disk}" | tail -n ${diff});
+				ids=$(seq 0 ${actual_disks} | tail -n ${diff});
 
 				#Print IDs
 				for id in ${ids}; do
-					echo ${id};
+					echo "REMOVE disk_${id}";
 				done
 			fi
 
+			
 			if [[ ${actual_disks} -lt ${major_disk} ]]; then
+				#ADD disks
 
 				#Get how many disk we have to add.
 				diff=$(( ${major_disk} - ${actual_disks} ));
+				ids=$(seq 0 ${major_disk} | tail -n ${diff});
 
+				#Print IDs
+				for id in ${ids}; do
+
+					#Get virtual_size and device to create VDI
+					alp=$(( ${id} + 1 ));
+					virtual_size=$(( $(eval echo disk_${id}) * 1024 * 1024 * 1024))
+					device=$(echo {a..z} | awk -v y=${alp} {'print "/dev/xvd"$y'});
+
+					#Start adding new disks
+					log 'msg' "MSG: Adding => disk_${id} | virtualsize => ${virtual_size}";
+
+					xe vm-disk-add \
+						name-label="${vm_name}#${id}" \
+						disk-size="${virtual_size}" \
+						sr-uuid="${sr_uuid}" \
+						vm="${vm_uuid}" \
+						device="autodetect" > /dev/null 2>&1
+
+					check_exit \
+						"$?" \
+						"Create VDI on sr ${sr_uuid}." \
+						"Create VDI on sr ${sr_uuid}." \
+						"fail" \
+						"${LINENO}"
+				done
 			fi
 
 	else
