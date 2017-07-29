@@ -200,7 +200,25 @@ ____EOF____
 					#Get vbd to remove
 					vdi_to_rm=$(xe vbd-list uuid=${vbd_to_rm} params=vdi-uuid | 
 						awk {'print $5'});
-					
+
+					#Detroy VBD without any chance to recover it.
+					xe vbd-destroy uuid="${vbd_to_rm}"
+					check_exit \
+						"$?" \
+						"Remove VBD ${vbd_to_rm}" \
+						"Remove VBD ${vbd_to_rm}" \
+						"fail" \
+						"${LINENO}"
+
+					#Detroy VDI without any chance to recover it.
+					xe vdi-destroy uuid="${vdi_to_rm}"
+					check_exit \
+						"$?" \
+						"Remove VDI ${vdi_to_rm}" \
+						"Remove VDI ${vdi_to_rm}" \
+						"fail" \
+						"${LINENO}"
+
 					echo $vdi_to_rm $vbd_to_rm
 
 				done
