@@ -177,7 +177,6 @@ ____EOF____
 
 
 			#REMOVE disks as the desidered state
-			echo ${actual_disks} ${major_disk}
 			if [[ ${actual_disks} -gt ${major_disk} ]]; then
 				#Get how many disk we have to remove.
 				diff=$(( ${actual_disks} - ${major_disk} ));
@@ -238,16 +237,15 @@ ____EOF____
 					#Get virtual_size and device to create VDI
 					alp=$(( ${id} + 1 ));
 					virtual_size=$(( $(eval echo disk_${id}) * 1024 * 1024 * 1024))
-					device=$(echo {a..z} | awk -v y=${alp} {'print "/dev/xvd"$y'});
 
 					#Start adding new disks
 					log 'msg' "MSG: Adding => disk_${id} | virtualsize => ${virtual_size}";
 
-					cur_vdi_uuid=$(xe vm-disk-add \
+					xe vm-disk-add \
 						disk-size="${virtual_size}" \
 						sr-uuid="${sr_uuid}" \
 						vm="${vm_uuid}" \
-						device="autodetect");
+						device="autodetect" > /dev/null 2>&1
 					check_exit \
 						"$?" \
 						"Create VDI on sr ${sr_uuid}." \
@@ -255,6 +253,8 @@ ____EOF____
 						"fail" \
 						"${LINENO}"
 
+					#Get current VDI uuid to rename the disk as the naming convention.
+					cur_vdi_uuid=$(xe vm-disk-list vm=new_test2  | grep VDI -A 1 | tail -n 1  | awk {'print $5'});
 					xe vdi-param-set name-label="${vm_name}#${id}" uuid=${cur_vdi_uuid}
 					check_exit \
 						"$?" \
@@ -265,19 +265,38 @@ ____EOF____
 				done
 			fi
 
+			##Check disks size
+			##
+			# for x in $(seq 0 ${major_disk}); do
+			# 	raw_size=$(xe vm-disk-list uuid="${vm_uuid}" | 
+			# 		grep "${x} VDI:" -A 4 | 
+			# 		grep 'virtual-size' | 
+			# 		awk {'print $4'});
+
+			# 	if [[ -n ${raw_size} ]]; then
+			# 		cur_disk_size=$(( ${raw_size} / 1024 / 1024 / 1024 ));
+			# 		desidered_size=$(eval echo "\$disk_${x}");
+			# 		if [[ "${desidered_size}" -gt "${cur_disk_size}" ]]; then
+			# 			disk_size_changes=true
+			# 		fi
+			# 	else
+			# 		disk_size_changes=true
+			# 	fi
+			# done
+
 			#Start VM
 			##
-			# get_vm_current_status=$(xe vm-list uuid=${vm_uuid} \
-			# 	params=power-state  | awk {'print $5'});
-			# if [[ ${get_vm_current_status} == 'halted' ]]; then
-			# 	xe vm-start uuid="${vm_uuid}" > /dev/null 2>&1
-			# 	check_exit \
-			# 			"$?" \
-			# 			"Start VM ${vm_uuid}" \
-			# 			"Start VM ${vm_uuid}" \
-			# 			"fail" \
-			# 			"${LINENO}"
-			# fi
+			 get_vm_current_status=$(xe vm-list uuid=${vm_uuid} \
+			 	params=power-state  | awk {'print $5'});
+			 if [[ ${get_vm_current_status} == 'halted' ]]; then
+			 	xe vm-start uuid="${vm_uuid}" > /dev/null 2>&1
+			 	check_exit \
+			 			"$?" \
+			 			"Start VM ${vm_uuid}" \
+			 			"Start VM ${vm_uuid}" \
+						"fail" \
+			 			"${LINENO}"
+			fi
 	else
 		#No action required, no changes.
 		changed=false
