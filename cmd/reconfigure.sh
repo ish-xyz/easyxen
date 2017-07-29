@@ -99,7 +99,7 @@ ____EOF____
 	##Get actual values DISKS N
 	##
 	actual_disks=$(xe vm-disk-list uuid=${vm_uuid} |
-		grep userdevice | 
+		grep VDI | 
 		wc -l);
 	check_exit \
 		"$?" \
@@ -177,14 +177,32 @@ ____EOF____
 
 
 			#REMOVE disks as the desidered state
+			echo ${actual_disks} ${major_disk}
 			if [[ ${actual_disks} -gt ${major_disk} ]]; then
 				#Get how many disk we have to remove.
 				diff=$(( ${actual_disks} - ${major_disk} ));
-				ids=$(seq 0 ${actual_disks} | tail -n ${diff});
+				ids=$(seq 0 $(( ${actual_disks} - 1 )) | tail -n ${diff});
 
 				#Print IDs
 				for id in ${ids}; do
-					echo "REMOVE disk_${id}";
+					if [[ ${id} -gt 2 ]]; then
+						device_position=$(( ${id} + 1 ));
+					else
+						device_position=${id};
+					fi
+
+					#Get vbd to remove
+					vbd_to_rm=$(xe vm-disk-list uuid=${vm_uuid} | 
+							grep "userdevice ( RW): ${device_position}" -B 2 | 
+							head -n 1 | 
+							awk {'print $5'});
+
+					#Get vbd to remove
+					vdi_to_rm=$(xe vbd-list uuid=${vbd_to_rm} params=vdi-uuid | 
+						awk {'print $5'});
+					
+					echo $vdi_to_rm $vbd_to_rm
+
 				done
 			fi
 
@@ -229,8 +247,19 @@ ____EOF____
 				done
 			fi
 
-
-
+			#Start VM
+			##
+			# get_vm_current_status=$(xe vm-list uuid=${vm_uuid} \
+			# 	params=power-state  | awk {'print $5'});
+			# if [[ ${get_vm_current_status} == 'halted' ]]; then
+			# 	xe vm-start uuid="${vm_uuid}" > /dev/null 2>&1
+			# 	check_exit \
+			# 			"$?" \
+			# 			"Start VM ${vm_uuid}" \
+			# 			"Start VM ${vm_uuid}" \
+			# 			"fail" \
+			# 			"${LINENO}"
+			# fi
 	else
 		#No action required, no changes.
 		changed=false
