@@ -36,8 +36,8 @@ ____EOF____
 		'sr_name' \
 		'disk_0' \
 		'pub_key'
-
-	#Get Storage Resource uuid
+	
+	#Get storagege Resource uuid
 	sr_uuid=$(xe sr-list name-label="${sr_name}" params=uuid  | awk {'print $5'});
 	check_exit \
 		"$?" \
@@ -46,14 +46,24 @@ ____EOF____
 		"fail" \
 		"${LINENO}"
 
-
+	#Check disks param format && \
 	#Get desidered disks number
 	for n in {0..8}; do
 		current_value=$(eval echo "\$disk_${n}");
 		if [[ -n "${current_value}" ]]; then
 			major_disk="${n}"
+		else
+			break;
 		fi
-		if [[ "${x}" -gt '7' ]]; then
+		
+		if [[ $(eval echo "\$disk_${n}") =~ ^[0-9]*GiB$ ]] \
+				|| [[ $(eval echo "\$disk_${n}") =~ ^[0-9]*MiB$ ]]; then
+			log 'msg' "OK: disk_${n} => ${current_value}"
+		else
+			log 'exit' "FAIL: disk_${n} => ${current_value} (not right format)"
+		fi
+
+		if [[ "${n}" -gt '7' ]]; then
 			log "exit" "you're trying to add too much disks."
 		fi
 	done
@@ -62,7 +72,10 @@ ____EOF____
 	major_disk=$(( ${major_disk} + 1 ))
 
 	#Service messages
-	log "msg" "OK: Desidered values are: ram -> ${ram} | cpu -> ${cpu} | disk_number -> ${major_disk}"
+	log 'msg' "OK: Desidered ram -> ${ram}"
+	log 'msg' "OK: Desidered cpu -> ${cpu}"
+	log 'msg' "OK: Desidered disks_number -> ${major_disk}"
+
 	log "msg" "MSG: The action reconfigure could shutdown your machine for a moment"
 
 	##Get vm_uuid by name
@@ -107,34 +120,23 @@ ____EOF____
 		"Get actual disks number -> ${actual_disks}" \
 		"fail" \
 		"${LINENO}"
-
-	##Check disks size
-	##
-	for x in $(seq 0 ${major_disk}); do
-		echo "${x}"
-		raw_size=$(xe vm-disk-list uuid="${vm_uuid}" | 
-			grep "${x} VDI:" -A 4 | 
-			grep 'virtual-size' | 
-			awk {'print $4'});
-
-		if [[ -n ${raw_size} ]]; then
-			cur_disk_size=$(( ${raw_size} / 1024 / 1024 / 1024 ));
-			desidered_size=$(eval echo "\$disk_${x}" | sed 's/MiB//g' | sed 's/GiB//g');
-			echo "${desidered_size}" -gt "${cur_disk_size}"
-			if [[ "${desidered_size}" -gt "${cur_disk_size}" ]]; then
-				disk_size_changes=true
-			fi
-		else
-			disk_size_changes=true
-		fi
-	done
+	
+	#Check disks size changes
+	if [[ "${major_disk}" -gt "${actual_disks}" ]]; then
+		for disk in $(seq 0 ${actual_disks}); do
+			echo disk_${disk}
+		done
+	else
+		for disk in $(seq 0 ${major_disk}); do
+			echo disk_${disk}
+		done
+	fi
 
 	##_Perform Shutdown action only \
 	##_if something is changed
 	if [[ "${actual_ram}" != "${ram}" ]] || \
 		[[ "${actual_cpu}" != "${cpu}" ]] || \
-		[[ "${actual_disks}" != "${major_disk}" ]] || \
-		[[ "${disk_size_changes}" == true ]]; then
+		[[ "${actual_disks}" != "${major_disk}" ]]; then
 			
 			get_vm_current_status=$(xe vm-list uuid=${vm_uuid} \
 				params=power-state  | awk {'print $5'});
@@ -253,17 +255,6 @@ ____EOF____
 						"${LINENO}"
 				done
 			fi
-
-			##Check disks size
-			##
-			echo ${major_disk}
-			for x in $(seq 0 ${major_disk}); do
-				raw_size=$(xe vm-disk-list uuid="${vm_uuid}" | 
-					grep "${x} VDI:" -A 4 | 
-					grep 'virtual-size' | 
-					awk {'print $4'});
-				echo ${x}
-			done			
 
 			#Start VM
 			##
