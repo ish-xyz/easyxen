@@ -61,6 +61,7 @@ ____EOF____
 		"${LINENO}"	
 	
 	#Check Disks desidered state
+	disks=$(printenv | grep disk_[0-8] | grep -v '^disk_3=');
 	act_disks="${TMPFILE001}"
 	des_disks="${TMPFILE002}"
 
@@ -83,8 +84,11 @@ ____EOF____
 		"fail" \
 		"${LINENO}"	
 
+	#Get disks to remove and add.
 	disks_to_add=$(diff "${act_disks}" "${des_disks}" | grep -e '>' | awk {'print $2'});
 	disks_to_rmv=$(diff "${act_disks}" "${des_disks}" | grep -e '<' | awk {'print $2'});
+	
+	#Check disks format values
 	for x in $(cat ${des_disks}); do
 		curvalue=$(eval echo \$disk_${x});
 		
@@ -94,8 +98,36 @@ ____EOF____
 			log 'exit' "FAIL: The disk_${x} => ${curvalue}, value is not valid.";
 		fi
 	done
-	#[ ] Chekc space on storage
-	#[ ] Check disks misure	
+
+
+	#Check disks size changes.
+	for disk in ${disks}; do
+
+		#Current Disk ID and Value
+		cd_id=$(echo ${disk} | awk -F '=' {'print $1'});
+		dev=$(echo ${cd_id} | awk -F '_' {'print $2'});
+		cd_value=$(echo ${disk} | awk -F '=' {'print $2'});
+		cur_vbd=$(xe vm-disk-list uuid=${vm_uuid} | 
+			grep "userdevice ( RW): ${dev}" -B 2 | 
+			grep 'uuid ( RO)' | 
+			awk {'print $5'} | 
+			head -n 1);
+		if [[ -n "${cur_vbd}" ]]; then
+
+			#Current VDI
+			cur_vdi=$(xe vbd-list params=vdi-uuid uuid=${cur_vbd} | 
+				awk {'print $5');
+
+			#Current virtual size
+			cur_vs=$(xe vdi-list uuid="${cur_vdi}" params=virtual-size | awk {'print $5'});
+
+			if [[ "${cd_value}" =~ ^[0-9]*GiB$ ]]; then
+				log 'msg' 'detected disk with GiB unit..';
+			elif [[ "${cd_value}" =~ ^[0-9]*MiB$ ]]; then
+				log 'msg' 'detected disk with MiB unit..';
+			fi
+		fi
+	done
 
 	#=Service messages
 	if [[ -n "${disk_3}" ]]; then
@@ -106,7 +138,9 @@ ____EOF____
 	log 'msg' 'MSG: Disks over 8 as position will be ignored.'
 	log 'msg' "MSG: Desidered ram -> ${ram}"
 	log 'msg' "MSG: Desidered cpu -> ${cpu}"
-	log 'msg' "MSG: Desidered disks_number -> ${major_disk}"
+	log 'msg' "MSG: Desidered disks -> $(printenv | 
+		grep disk_[0-8] | 
+		grep -v '^disk_3=' | wc -l)"
 
 	log "msg" "MSG: The action 'reconfigure' may be turn off your VM for a moment."
 	#= End Service messages
@@ -131,7 +165,7 @@ ____EOF____
 		"Get actual RAM value -> ${actual_ram}" \
 		"fail" \
 		"${LINENO}"
-
+	
 
 	##_Perform Shutdown action only \
 	##_if something is changed
@@ -195,9 +229,34 @@ ____EOF____
 			 			"${LINENO}"
 			fi
 
-		#ADD disks
-		#REMOVE disks
-		#RESIZE disks
+			#ADD disks
+			for dpos in ${disks_to_add}; do
+				log 'msg' 'MSG: Start analyzing the disks to add...'
+				echo "${dpos}";
+				cur_size=$(eval echo \$disk_${dpos});
+				xe vm-disk-add uuid="${vm_uuid}" device="${dpos}" disk-size="${cur_size}" sr-uuid="${sr_uuid}"
+				check_exit \
+			 		"$?" \
+			 		"Add disk ${dpos} with size => ${cur_size} on sr ${sr_uuid}." \
+			 		"Add disk ${dpos} with size => ${cur_size} on sr ${sr_uuid}." \
+					"fail" \
+			 		"${LINENO}"
+			done
+
+			#REMOVE disks
+			for dpos in ${disks_to_rmv}; do
+				log 'msg' 'MSG: Start analyzing the disks to remove...'
+				xe vm-disk-remove device="${dpos}" uuid="${vm_uuid}"
+				check_exit \
+			 		"$?" \
+			 		"Remove disk ${dpos}." \
+			 		"Remove disk ${dpos}." \
+					"fail" \
+			 		"${LINENO}"
+			done
+			
+
+			#RESIZE disks
 
 		changed=true
 		msg="VM ${vm_name} has been reconfigured."
