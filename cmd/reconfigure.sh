@@ -100,7 +100,7 @@ ____EOF____
 	done
 
 
-	#Check disks size changes.
+	#Check disks size changes & get disks to update later.
 	for disk in ${disks}; do
 
 		#Current Disk ID and Value
@@ -119,13 +119,17 @@ ____EOF____
 				awk {'print $5');
 
 			#Current virtual size
-			cur_vs=$(xe vdi-list uuid="${cur_vdi}" params=virtual-size | awk {'print $5'});
-
-			if [[ "${cd_value}" =~ ^[0-9]*GiB$ ]]; then
-				log 'msg' 'detected disk with GiB unit..';
-			elif [[ "${cd_value}" =~ ^[0-9]*MiB$ ]]; then
-				log 'msg' 'detected disk with MiB unit..';
+			cur_vs=$(xe vdi-list uuid="${cur_vdi}" params=virtual-size | 
+				awk {'print $5'});
+			cur_ds=$(( $(echo ${cd_value} | 
+				sed 's#GiB##g' | 
+				sed 's#MiB##g') * 1024 * 1024 * 1024 ));
+			
+			if [[ "${cur_ds}" -gt "${cur_vs}" ]]; then
+				disk_size_changes=true
+				disks_to_mod="${disks_to_mod} ${cd_id}"
 			fi
+
 		fi
 	done
 
@@ -172,7 +176,8 @@ ____EOF____
 	if [[ "${actual_ram}" != "${ram}" ]] || \
 		[[ "${actual_cpu}" != "${cpu}" ]] || \
 		[[ -n "${disks_to_rmv}" ]] || \
-		[[ -n "${disks_to_add}" ]]; then
+		[[ -n "${disks_to_add}" ]] || \
+		[[ -n "${disk_size_changes}}" == true ]]; then
 			
 			get_vm_current_status=$(xe vm-list uuid=${vm_uuid} \
 				params=power-state  | awk {'print $5'});
@@ -257,6 +262,9 @@ ____EOF____
 			
 
 			#RESIZE disks
+			for dmod in ${disks_to_mod}; do
+				echo $dmod
+			done
 
 		changed=true
 		msg="VM ${vm_name} has been reconfigured."
