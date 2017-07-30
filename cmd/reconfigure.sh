@@ -218,8 +218,6 @@ ____EOF____
 						"fail" \
 						"${LINENO}"
 
-					echo $vdi_to_rm $vbd_to_rm
-
 				done
 			fi
 
@@ -229,14 +227,13 @@ ____EOF____
 
 				#Get how many disk we have to add.
 				diff=$(( ${major_disk} - ${actual_disks} ));
-				ids=$(seq 0 ${major_disk} | tail -n ${diff});
+				ids=$(seq 0 $(( ${major_disk} - 1 )) | tail -n ${diff});
 
 				#Print IDs
 				for id in ${ids}; do
 
 					#Get virtual_size and device to create VDI
-					alp=$(( ${id} + 1 ));
-					virtual_size=$(( $(eval echo disk_${id}) * 1024 * 1024 * 1024))
+					virtual_size=$(eval echo disk_${id})"GiB"
 
 					#Start adding new disks
 					log 'msg' "MSG: Adding => disk_${id} | virtualsize => ${virtual_size}";
@@ -252,44 +249,15 @@ ____EOF____
 						"Create VDI on sr ${sr_uuid}." \
 						"fail" \
 						"${LINENO}"
-
-					#Get current VDI uuid to rename the disk as the naming convention.
-					cur_vdi_uuid=$(xe vm-disk-list vm=new_test2  | grep VDI -A 1 | tail -n 1  | awk {'print $5'});
-					xe vdi-param-set name-label="${vm_name}#${id}" uuid=${cur_vdi_uuid}
-					check_exit \
-						"$?" \
-						"VDI param setup 'name-label'" \
-						"VDI param setup 'name-label' => ${vm_name}#${id}" \
-						"fail" \
-						"${LINENO}"
 				done
 			fi
-
-			##Check disks size
-			##
-			# for x in $(seq 0 ${major_disk}); do
-			# 	raw_size=$(xe vm-disk-list uuid="${vm_uuid}" | 
-			# 		grep "${x} VDI:" -A 4 | 
-			# 		grep 'virtual-size' | 
-			# 		awk {'print $4'});
-
-			# 	if [[ -n ${raw_size} ]]; then
-			# 		cur_disk_size=$(( ${raw_size} / 1024 / 1024 / 1024 ));
-			# 		desidered_size=$(eval echo "\$disk_${x}");
-			# 		if [[ "${desidered_size}" -gt "${cur_disk_size}" ]]; then
-			# 			disk_size_changes=true
-			# 		fi
-			# 	else
-			# 		disk_size_changes=true
-			# 	fi
-			# done
 
 			#Start VM
 			##
 			 get_vm_current_status=$(xe vm-list uuid=${vm_uuid} \
 			 	params=power-state  | awk {'print $5'});
 			 if [[ ${get_vm_current_status} == 'halted' ]]; then
-			 	xe vm-start uuid="${vm_uuid}" > /dev/null 2>&1
+			 	echo xe vm-start uuid="${vm_uuid}" > /dev/null 2>&1
 			 	check_exit \
 			 			"$?" \
 			 			"Start VM ${vm_uuid}" \
@@ -297,6 +265,10 @@ ____EOF____
 						"fail" \
 			 			"${LINENO}"
 			fi
+
+		changed=true
+		msg="VM ${vm_name} has been reconfigured."
+		printf '{"changed": %s, "msg": "%s"}' "${changed}" "${msg}"
 	else
 		#No action required, no changes.
 		changed=false
