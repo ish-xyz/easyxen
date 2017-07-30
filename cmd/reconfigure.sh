@@ -121,12 +121,18 @@ ____EOF____
 			#Current virtual size
 			cur_vs=$(xe vdi-list uuid="${cur_vdi}" params=virtual-size | 
 				awk {'print $5'});
-			cur_ds=$(( $(echo ${cd_value} | 
-				sed 's#GiB##g' | 
-				sed 's#MiB##g') * 1024 * 1024 * 1024 ));
 			
+			if [[ "${cur_value}" =~ ^[0-9]*GiB$ ]]; then
+				cur_ds=$(( $(echo ${cd_value} | 
+					sed 's#GiB##g') * 1024 * 1024 * 1024 ));
+			elif [[ "${cur_value}" =~ ^[0-9]*MiB$ ]]; then
+				cur_ds=$(( $(echo ${cd_value} | 
+					sed 's#MiB##g') * 1024 * 1024 ));
+			fi
+	
 			if [[ "${cur_ds}" -gt "${cur_vs}" ]]; then
 				disk_size_changes=true
+				log 'msg' "MSG: Detected disk size changes on ${cd_id}"
 				disks_to_mod="${disks_to_mod} ${cd_id}"
 			fi
 
