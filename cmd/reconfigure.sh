@@ -83,31 +83,33 @@ ____EOF____
 		"fail" \
 		"${LINENO}"	
 
-
 	disks_to_add=$(diff "${act_disks}" "${des_disks}" | grep -e '>' | awk {'print $2'});
 	disks_to_rmv=$(diff "${act_disks}" "${des_disks}" | grep -e '<' | awk {'print $2'});
 	for x in $(cat ${des_disks}); do
 		curvalue=$(eval echo \$disk_${x});
-		if [[ "${curvalue}" =~ '^[0-9]*MiB$']] || \
-			[[ "${curvalue}" =~ '^[0-9]*MiB$']]; then
-			echo 'conforme';
+		
+		if [[ "${curvalue}" =~ ^[0-9]*[G,M]iB$ ]]; then
+			log 'msg' "OK: The disk_${x} => ${curvalue}, value is valid.";
 		else
-			echo 'non conforme'
+			log 'exit' "FAIL: The disk_${x} => ${curvalue}, value is not valid.";
 		fi
 	done
-	#[ ] Check disks value format
-	#[ ] Check disks misure
 	#[ ] Chekc space on storage
-	#[ ] Disk position 3 will be ignored
-	#[ ] Ignore shrink
+	#[ ] Check disks misure	
 
+	#=Service messages
+	if [[ -n "${disk_3}" ]]; then
+		log 'msg' 'WARN: DISK POSITION 3 WILL BE IGNORED.'
+	fi
 
-	#Service messages
+	log 'msg' 'MSG: Shrink operation on disks will be ignored.'
+	log 'msg' 'MSG: Disks over 8 as position will be ignored.'
 	log 'msg' "MSG: Desidered ram -> ${ram}"
 	log 'msg' "MSG: Desidered cpu -> ${cpu}"
 	log 'msg' "MSG: Desidered disks_number -> ${major_disk}"
 
-	log "msg" "WARN: The action 'reconfigure' may be turn off your VM for a moment."
+	log "msg" "MSG: The action 'reconfigure' may be turn off your VM for a moment."
+	#= End Service messages
 
 	##Get actual values CPU
 	##
@@ -134,7 +136,9 @@ ____EOF____
 	##_Perform Shutdown action only \
 	##_if something is changed
 	if [[ "${actual_ram}" != "${ram}" ]] || \
-		[[ "${actual_cpu}" != "${cpu}" ]]; then
+		[[ "${actual_cpu}" != "${cpu}" ]] || \
+		[[ -n "${disks_to_rmv}" ]] || \
+		[[ -n "${disks_to_add}" ]]; then
 			
 			get_vm_current_status=$(xe vm-list uuid=${vm_uuid} \
 				params=power-state  | awk {'print $5'});
@@ -190,6 +194,10 @@ ____EOF____
 						"fail" \
 			 			"${LINENO}"
 			fi
+
+		#ADD disks
+		#REMOVE disks
+		#RESIZE disks
 
 		changed=true
 		msg="VM ${vm_name} has been reconfigured."
