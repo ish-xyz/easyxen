@@ -17,9 +17,9 @@ function reconfigure() {
     vm_name: {{ vm_name }}    *REQUIRED
     cpu: 1                    *REQUIRED
     ram: 1024                 *REQUIRED
-    storage: 'Local storage'  *REQUIRED
-    disk_0: 20                *REQUIRED
-    disk_1: 10                *Optional (but must be incremental, limit: 12)
+    sr_name: 'Local storage'  *REQUIRED
+    disk_0: 10GiB             *REQUIRED
+    disk_1: 200MiB            *Optional (but must be incremental, limit: 12)
     pub_key:                  *REQUIRED
 ____EOF____
   }
@@ -33,12 +33,12 @@ ____EOF____
 		'vm_name' \
 		'cpu' \
 		'ram' \
-		'storage' \
+		'sr_name' \
 		'disk_0' \
 		'pub_key'
 
 	#Get Storage Resource uuid
-	sr_uuid=$(xe sr-list name-label="${storage}" params=uuid  | awk {'print $5'});
+	sr_uuid=$(xe sr-list name-label="${sr_name}" params=uuid  | awk {'print $5'});
 	check_exit \
 		"$?" \
 		"Get Storage Resource uuid" \
@@ -111,6 +111,7 @@ ____EOF____
 	##Check disks size
 	##
 	for x in $(seq 0 ${major_disk}); do
+		echo "${x}"
 		raw_size=$(xe vm-disk-list uuid="${vm_uuid}" | 
 			grep "${x} VDI:" -A 4 | 
 			grep 'virtual-size' | 
@@ -118,7 +119,8 @@ ____EOF____
 
 		if [[ -n ${raw_size} ]]; then
 			cur_disk_size=$(( ${raw_size} / 1024 / 1024 / 1024 ));
-			desidered_size=$(eval echo "\$disk_${x}");
+			desidered_size=$(eval echo "\$disk_${x}" | sed 's/MiB//g' | sed 's/GiB//g');
+			echo "${desidered_size}" -gt "${cur_disk_size}"
 			if [[ "${desidered_size}" -gt "${cur_disk_size}" ]]; then
 				disk_size_changes=true
 			fi
@@ -233,7 +235,7 @@ ____EOF____
 				for id in ${ids}; do
 
 					#Get virtual_size and device to create VDI
-					virtual_size=$(echo $(eval echo "\$disk_${id}")'GiB');
+					virtual_size=$(eval echo "\$disk_${id}")
 
 					#Start adding new disks
 					log 'msg' "MSG: Adding => disk_${id} | virtualsize => ${virtual_size}";
@@ -251,6 +253,17 @@ ____EOF____
 						"${LINENO}"
 				done
 			fi
+
+			##Check disks size
+			##
+			echo ${major_disk}
+			for x in $(seq 0 ${major_disk}); do
+				raw_size=$(xe vm-disk-list uuid="${vm_uuid}" | 
+					grep "${x} VDI:" -A 4 | 
+					grep 'virtual-size' | 
+					awk {'print $4'});
+				echo ${x}
+			done			
 
 			#Start VM
 			##
