@@ -121,19 +121,21 @@ ____EOF____
 			#Current virtual size
 			cur_vs=$(xe vdi-list uuid="${cur_vdi}" params=virtual-size | 
 				awk {'print $5'});
-			
-			if [[ "${cur_value}" =~ ^[0-9]*GiB$ ]]; then
+
+			if [[ "${cd_value}" =~ ^[0-9]*GiB$ ]]; then
 				cur_ds=$(( $(echo ${cd_value} | 
 					sed 's#GiB##g') * 1024 * 1024 * 1024 ));
-			elif [[ "${cur_value}" =~ ^[0-9]*MiB$ ]]; then
+			elif [[ "${cd_value}" =~ ^[0-9]*MiB$ ]]; then
 				cur_ds=$(( $(echo ${cd_value} | 
 					sed 's#MiB##g') * 1024 * 1024 ));
 			fi
-	
+
+			#Check if the desidered size is higher then di current.
 			if [[ "${cur_ds}" -gt "${cur_vs}" ]]; then
 				disk_size_changes=true
-				log 'msg' "MSG: Detected disk size changes on ${cd_id}"
-				disks_to_mod="${disks_to_mod} ${cd_id}"
+				log 'msg' "MSG: Detected disk size changes on ${cd_id} to ${cur_ds}"
+				echo "${cd_id} ${cd_value}" >> "${TMPFILE003}";
+				echo ${TMPFILE003}
 			fi
 
 		fi
@@ -176,8 +178,8 @@ ____EOF____
 		"fail" \
 		"${LINENO}"
 	
-
-	##_Perform Shutdown action only \
+	
+##_Perform Shutdown action only \
 	##_if something is changed
 	if [[ "${actual_ram}" != "${ram}" ]] || \
 		[[ "${actual_cpu}" != "${cpu}" ]] || \
@@ -217,6 +219,14 @@ ____EOF____
 			#Setup CPU as the desidered state
 			if [[ ${actual_cpu} != ${cpu} ]]; then
 				xe vm-param-set uuid="${vm_uuid}" \
+				VCPUs-at-startup=1 VCPUs-max="${cpu}" > /dev/null 2>&1
+			    check_exit \
+					"$?" \
+					"Pair static vCPU." \
+					"Pair static vCPU: ${cpu}" \
+					"fail" \
+					"${LINENO}"
+
 			    VCPUs-at-startup="${cpu}" VCPUs-max="${cpu}" > /dev/null 2>&1
 				check_exit \
 					"$?" \
@@ -241,9 +251,8 @@ ____EOF____
 			fi
 
 			#ADD disks
+			log 'msg' 'MSG: Start analyzing the disks to add...'
 			for dpos in ${disks_to_add}; do
-				log 'msg' 'MSG: Start analyzing the disks to add...'
-				echo "${dpos}";
 				cur_size=$(eval echo \$disk_${dpos});
 				xe vm-disk-add uuid="${vm_uuid}" device="${dpos}" disk-size="${cur_size}" sr-uuid="${sr_uuid}"
 				check_exit \
@@ -255,13 +264,13 @@ ____EOF____
 			done
 
 			#REMOVE disks
+			log 'msg' 'MSG: Start analyzing the disks to remove...'
 			for dpos in ${disks_to_rmv}; do
-				log 'msg' 'MSG: Start analyzing the disks to remove...'
 				xe vm-disk-remove device="${dpos}" uuid="${vm_uuid}"
 				check_exit \
 			 		"$?" \
-			 		"Remove disk ${dpos}." \
-			 		"Remove disk ${dpos}." \
+			 		"Remove disk on position ${dpos} from sr ${sr_uuid}." \
+			 		"Remove disk ${dpos} from sr ${sr_uuid}." \
 					"fail" \
 			 		"${LINENO}"
 			done
