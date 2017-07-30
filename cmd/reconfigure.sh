@@ -51,6 +51,9 @@ ____EOF____
 	des_disks=$(printenv | grep disk_[0-8] | grep -v '^disk_3=' | 
 		awk -F 'disk_' {'print $2'} | 
 		awk -F '=' {'print $1'} | sort);
+
+	echo "${act_disks}" | sed '/^\s*$/d'
+	echo "${des_disks}" | sed '/^\s*$/d'
 	#[ ] Check disk value format
 	#[ ] Check disk size
 	#[ ] Disk position 3 will be ignored
