@@ -233,7 +233,7 @@ ____EOF____
 				for id in ${ids}; do
 
 					#Get virtual_size and device to create VDI
-					virtual_size=$(eval echo disk_${id})"GiB"
+					virtual_size=$(echo $(eval echo "\$disk_${id}")'GiB');
 
 					#Start adding new disks
 					log 'msg' "MSG: Adding => disk_${id} | virtualsize => ${virtual_size}";
