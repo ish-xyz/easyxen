@@ -177,7 +177,7 @@ ____EOF____
 		[[ "${actual_cpu}" != "${cpu}" ]] || \
 		[[ -n "${disks_to_rmv}" ]] || \
 		[[ -n "${disks_to_add}" ]] || \
-		[[ -n "${disk_size_changes}}" == true ]]; then
+		[[ "${disk_size_changes}}" == true ]]; then
 			
 			get_vm_current_status=$(xe vm-list uuid=${vm_uuid} \
 				params=power-state  | awk {'print $5'});
