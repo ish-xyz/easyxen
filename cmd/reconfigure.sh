@@ -116,7 +116,7 @@ ____EOF____
 
 			#Current VDI
 			cur_vdi=$(xe vbd-list params=vdi-uuid uuid=${cur_vbd} | 
-				awk {'print $5');
+				awk {'print $5'});
 
 			#Current virtual size
 			cur_vs=$(xe vdi-list uuid="${cur_vdi}" params=virtual-size | 
