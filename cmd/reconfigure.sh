@@ -105,10 +105,10 @@ ____EOF____
 
 		#Current Disk ID and Value
 		cd_id=$(echo ${disk} | awk -F '=' {'print $1'});
-		dev=$(echo ${cd_id} | awk -F '_' {'print $2'});
+		cur_dev=$(echo ${cd_id} | awk -F '_' {'print $2'});
 		cd_value=$(echo ${disk} | awk -F '=' {'print $2'});
 		cur_vbd=$(xe vm-disk-list uuid=${vm_uuid} | 
-			grep "userdevice ( RW): ${dev}" -B 2 | 
+			grep "userdevice ( RW): ${cur_dev}" -B 2 | 
 			grep 'uuid ( RO)' | 
 			awk {'print $5'} | 
 			head -n 1);
@@ -134,8 +134,7 @@ ____EOF____
 			if [[ "${cur_ds}" -gt "${cur_vs}" ]]; then
 				disk_size_changes=true
 				log 'msg' "MSG: Detected disk size changes on ${cd_id} to ${cur_ds}"
-				echo "${cd_id} ${cd_value}" >> "${TMPFILE003}";
-				echo ${TMPFILE003}
+				echo "${cur_dev} ${cd_value}" >> "${TMPFILE003}";
 			fi
 
 		fi
@@ -185,7 +184,7 @@ ____EOF____
 		[[ "${actual_cpu}" != "${cpu}" ]] || \
 		[[ -n "${disks_to_rmv}" ]] || \
 		[[ -n "${disks_to_add}" ]] || \
-		[[ "${disk_size_changes}}" == true ]]; then
+		[[ "${disk_size_changes}" == true ]]; then
 			
 			get_vm_current_status=$(xe vm-list uuid=${vm_uuid} \
 				params=power-state  | awk {'print $5'});
@@ -275,10 +274,28 @@ ____EOF____
 			 		"${LINENO}"
 			done
 			
-
 			#RESIZE disks
-			for dmod in ${disks_to_mod}; do
-				echo $dmod
+			log 'msg' 'MSG: start resizing disks if is needed.'
+			cat "${TMPFILE003}" | while read l; do
+				cur_dev=$(echo $l | awk {'print $1'});
+				cur_ds=$(echo $l | awk {'print $2'});
+
+				cur_vbd=$(xe vm-disk-list uuid=${vm_uuid} | 
+					grep "userdevice ( RW): ${cur_dev}" -B 2 | 
+					grep uuid | 
+					head -n1 | 
+					awk {'print $5'});
+				cur_vdi=$(xe vbd-list uuid="${cur_vbd}" params=vdi-uuid | 
+					awk {'print $5'});
+				
+				xe vdi-resize uuid="${cur_vdi}" disk-size="${cur_ds}" > /dev/null 2>&1
+				check_exit \
+			 		"$?" \
+			 		"Resize disk ${dev} from vdi ${cur_vdi}." \
+			 		"Resize disk ${dev} from vdi ${cur_vdi}." \
+					"fail" \
+			 		"${LINENO}"
+				#Resize action
 			done
 
 		changed=true
