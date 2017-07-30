@@ -45,6 +45,16 @@ ____EOF____
 		"fail" \
 		"${LINENO}"
 	
+	##Get vm_uuid by name
+	##
+	vm_uuid=$(get_vm_uuid "${vm_name}");
+	check_exit \
+		"$?" \
+		"Get vm uuid by name" \
+		"Get vm uuid by name" \
+		"fail" \
+		"${LINENO}"	
+	
 	#Get disks info
 	disks=$(printenv | grep disk_[0-8])
 	act_disks=$(xe vm-disk-list uuid=${vm_uuid}  | grep userdevice | awk {'print $4'} | sort);
@@ -61,21 +71,11 @@ ____EOF____
 
 
 	#Service messages
-	log 'msg' "OK: Desidered ram -> ${ram}"
-	log 'msg' "OK: Desidered cpu -> ${cpu}"
-	log 'msg' "OK: Desidered disks_number -> ${major_disk}"
+	log 'msg' "MSG: Desidered ram -> ${ram}"
+	log 'msg' "MSG: Desidered cpu -> ${cpu}"
+	log 'msg' "MSG: Desidered disks_number -> ${major_disk}"
 
-	log "msg" "MSG: The action reconfigure could shutdown your machine for a moment"
-
-	##Get vm_uuid by name
-	##
-	vm_uuid=$(get_vm_uuid "${vm_name}");
-	check_exit \
-		"$?" \
-		"Get vm uuid by name" \
-		"Get vm uuid by name" \
-		"fail" \
-		"${LINENO}"
+	log "msg" "WARN: The action 'reconfigure' may be turn off your VM for a moment."
 
 	##Get actual values CPU
 	##
