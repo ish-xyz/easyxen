@@ -8,6 +8,11 @@ function reconfigure() {
 	##Reconfigure virtual machines (Idempotent)
 	##NOTE: The Shrink function will be not released in the first version of the module.
 
+	#Initialize Variables
+	TMPFILE001=$(echo "/tmp/${RANDOM}.easyxen");
+	TMPFILE002=$(echo "/tmp/${RANDOM}.easyxen");
+	TMPFILE003=$(echo "/tmp/${RANDOM}.easyxen");
+
 	function ansible_usage() {
   #Usage function, help
     cat <<____EOF____
@@ -55,17 +60,44 @@ ____EOF____
 		"fail" \
 		"${LINENO}"	
 	
-	#Get disks info
-	disks=$(printenv | grep disk_[0-8])
-	act_disks=$(xe vm-disk-list uuid=${vm_uuid}  | grep userdevice | awk {'print $4'} | sort);
-	des_disks=$(printenv | grep disk_[0-8] | grep -v '^disk_3=' | 
-		awk -F 'disk_' {'print $2'} | 
-		awk -F '=' {'print $1'} | sort);
+	#Check Disks desidered state
+	act_disks="${TMPFILE001}"
+	des_disks="${TMPFILE002}"
 
-	echo "${act_disks}" | sed '/^\s*$/d'
-	echo "${des_disks}" | sed '/^\s*$/d'
-	#[ ] Check disk value format
-	#[ ] Check disk size
+	xe vm-disk-list uuid="${vm_uuid}"  | grep userdevice | 
+		awk {'print $4'} | sort > "${act_disks}";
+	check_exit \
+		"$?" \
+		"Get actual disks position." \
+		"Get actual disks position." \
+		"fail" \
+		"${LINENO}"
+
+	printenv | grep disk_[0-8] | grep -v '^disk_3=' | 
+		awk -F 'disk_' {'print $2'} | 
+		awk -F '=' {'print $1'} | sort > "${des_disks}"
+	check_exit \
+		"$?" \
+		"Get desidered disks position." \
+		"Get desidered disks position." \
+		"fail" \
+		"${LINENO}"	
+
+
+	disks_to_add=$(diff "${act_disks}" "${des_disks}" | grep -e '>' | awk {'print $2'});
+	disks_to_rmv=$(diff "${act_disks}" "${des_disks}" | grep -e '<' | awk {'print $2'});
+	for x in $(cat ${des_disks}); do
+		curvalue=$(eval echo \$disk_${x});
+		if [[ "${curvalue}" =~ '^[0-9]*MiB$']] || \
+			[[ "${curvalue}" =~ '^[0-9]*MiB$']]; then
+			echo 'conforme';
+		else
+			echo 'non conforme'
+		fi
+	done
+	#[ ] Check disks value format
+	#[ ] Check disks misure
+	#[ ] Chekc space on storage
 	#[ ] Disk position 3 will be ignored
 	#[ ] Ignore shrink
 
