@@ -1,9 +1,3 @@
-#!/bin/bash
-#
-## Function to Halt VMs on XEN hypervisors
-##
-#################################################
-
 function halt() {
 	##Halt virtual machines (Idempotent)
 	##

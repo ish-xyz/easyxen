@@ -9,7 +9,7 @@ function initialize_vars() {
 	## global and non-global
 
 	export STEP=0;
-	export ROOT_PATH="/root/easyxen"
+	export ROOT_PATH="/mnt/easyxen"
 	export LOG_FILE="${ROOT_PATH}/log/debug_log";
 	export IMAGES_REPO="${ROOT_PATH}/images";
 	export DEBUG=1

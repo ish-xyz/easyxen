@@ -1,9 +1,3 @@
-#!/bin/bash
-#
-## Function to remove VMs on XEN hypervisors
-##
-#################################################
-
 function absent() {
 	##Remove virtual machines (Idempotent)
 	##

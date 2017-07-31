@@ -1,9 +1,3 @@
-#!/bin/bash
-#
-## Function to Start/Run VMs on XEN hypervisors
-##
-#################################################
-
 function run() {
 	##Start/Run virtual machines (Idempotent)
 	##

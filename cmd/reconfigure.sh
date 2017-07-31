@@ -1,9 +1,3 @@
-#!/bin/bash
-#
-## Function to Reconfigure the VM HW on XEN hypervisors
-##
-#################################################
-
 function reconfigure() {
 	##Reconfigure virtual machines (Idempotent)
 	##NOTE: The Shrink function will be not released in the first version of the module.

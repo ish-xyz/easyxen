@@ -1,12 +1,3 @@
-#!/bin/bash
-#
-## Function to provision VMs on XEN hypervisors
-## And configure those automatically
-## NON-IDEMPOTENT for choice
-##
-#################################################
-#
-
 function present() {
 	##Create VM and setup as the desidered state. (Non-Idempotent)
 	##
