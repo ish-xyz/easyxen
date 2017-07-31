@@ -1,0 +1,8 @@
+- hosts: target
+  connection: ssh
+  become: true
+  tasks:
+    - name: "Turn off {{ vm_name }}"
+      easyxen:
+        state: halt
+        vm_name: "{{ vm_name }}"
