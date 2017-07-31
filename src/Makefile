@@ -1,6 +1,6 @@
 .PHONY: all
 
-target_file = easyxen
+target_file = ../library/easyxen
 
 create:
         @touch $(target_file)
