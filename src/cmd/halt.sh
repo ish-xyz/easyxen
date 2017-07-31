@@ -5,10 +5,10 @@ function halt() {
 	function ansible_usage() {
     	#Usage function, help
 		cat <<____EOF____
-- name: "Xen Remoev VM"
+- name: "Xen Turn off VM"
   easyxen:
-    state: halt  			* REQUIRED
-    vm_name: worker2 		* REQUIRED
+    state: halt  					#* REQUIRED
+    vm_name: easyxen_worker1 		#* REQUIRED
 
 ____EOF____
 	}

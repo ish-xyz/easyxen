@@ -5,10 +5,10 @@ function run() {
 	function ansible_usage() {
     	#Usage function, help
 		cat <<____EOF____
-- name: "Xen Remoev VM"
+- name: "Xen start VM"
   easyxen:
-    state: halt  			* REQUIRED
-    vm_name: worker2 		* REQUIRED
+    state: run  				#* REQUIRED
+    vm_name: easyxen_worker1 	#* REQUIRED
 
 ____EOF____
 	}

@@ -13,31 +13,29 @@ function present() {
     function ansible_usage() {
     	#Usage function, help
 		cat <<____EOF____
-- name: "Xen provisioning new machine"
-  easyxen:
-    state: present 									* REQUIRED
-    vm_name: worker2 								* REQUIRED
-    cpu: 1 											* REQUIRED
-    ram: 512 										* REQUIRED
-    mac_address: 00:0c:29:6f:5d:c3  				(optional) - default = automatically generated
-    image: base.xva									* REQUIRED
-    ip_address: 192.168.1.170 						* REQUIRED
-    gateway: 192.168.1.1 							* REQUIRED
-    netmask: 255.255.255.0 							(optional) - default = 255.255.255.0
-    broadcast: 192.168.1.255 						(optional) - default = {{ ip_address }}.255
-    dns1: 192.168.1.126 							(optional) - default = 8.8.8.8
-    dns2: 192.168.1.127 							(optional) - default = 8.8.4.4
-    disk_to_mount: 0 								* REQUIRED
-    distro: centos					 				* REQUIRED
-    network_file: '{network_path}/ifcfg-eth0' 		(optional) - default defined by OS distro.
-    pub_key: 	'id_rsa.pub (raw key)'				* REQUIRED
-    os_user: 										(optional) - default = easyxen
-    *playbook: 										(optional) - default = none *Playbook to run on the instance after the boot.
-    *userdata:										(optional) - default = none	
-      - role: web
-      - env: dev
-      - custom: value
-
+- hosts: target
+  connection: ssh
+  become: true
+  tasks:
+    - name: "Xen create new machine"
+      easyxen:
+        state: present                              #*REQUIRED
+        vm_name: easyxen_worker1                    #*REQUIRED
+        cpu: 1                                      #*REQUIRED
+        ram: 512                                    #*REQUIRED
+        mac_address: 00:0c:29:6f:5d:c3              #(optional) - default = automatically generated
+        image: centos_7.xva                         #*REQUIRED
+        ip_address: 192.168.1.170                   #*REQUIRED
+        gateway: 192.168.1.1                        #*REQUIRED
+        netmask: 255.255.255.0                      #(optional) - default = 255.255.255.0
+        broadcast: 192.168.1.255                    #(optional) - default = {{ ip_address }}.255
+        dns1: 192.168.1.126                         #(optional) - default = 8.8.8.8
+        dns2: 192.168.1.127                         #(optional) - default = 8.8.4.4
+        disk_position: 0                            #*REQUIRED disk_position of the disk to mount to configure the network and other base configuration.
+        distro: centos                              #*REQUIRED
+        network_file: '{network_path}/ifcfg-eth0'   #(optional) - default defined by OS distro.
+        pub_key:  ssh-rsaAxxizu..roo@github.com     #*REQUIRED
+        os_user: "{{vm_user}}"                      #(optional) - default = easyxen
 ____EOF____
 	}
 	
@@ -149,7 +147,7 @@ ARP=yes" > "${mount_point}${network_file}";
 		'ram' \
 		'gateway' \
 		'ip_address' \
-		'disk_to_mount' \
+		'disk_position' \
 		'distro' \
 		'pub_key' \
 		'os_user' \
@@ -319,7 +317,7 @@ ARP=yes" > "${mount_point}${network_file}";
 
 	        ## If the position is 0, get the 
 	        ## vdi uuid and save it.
-	        if [[ ${device_position} == ${disk_to_mount} ]]; then
+	        if [[ ${device_position} == ${disk_position} ]]; then
 	                vdi_uuid=$(xe vbd-list uuid=${vbd_uuid} params=vdi-uuid |
 	                        awk {'print $5'} | sed '/^\s*$/d')
 					check_exit \

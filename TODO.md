@@ -1,5 +1,17 @@
 #TEMP_TODO_NOTE:
 
+
+[ ] base_image -> create debian7
+
+[ ] base_image -> create debian8
+
+[ ] base_image -> create centos6
+
+[ ] base_image -> create redhat6
+
+[ ] base_image -> create redhat7
+
+
 [ ] base_image -> Automated CIS benchmark.
 
 [ ] base_image -> put all base images on a repository

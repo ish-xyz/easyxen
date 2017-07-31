@@ -5,10 +5,10 @@ function absent() {
 	function ansible_usage() {
     	#Usage function, help
 		cat <<____EOF____
-- name: "Xen Remoev VM"
+- name: "Xen Remove VM"
   easyxen:
-    state: absent 			* REQUIRED
-    vm_name: worker2 		* REQUIRED
+    state: absent  					#* REQUIRED
+    vm_name: easyxen_worker1 		#* REQUIRED
 
 ____EOF____
 	}

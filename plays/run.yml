@@ -2,7 +2,7 @@
   connection: ssh
   become: true
   tasks:
-    - name: "Run {{ vm_name }}"
-      easyxen:
-        state: run
-        vm_name: "{{ vm_name }}"
+	- name: "Xen start VM"
+	  easyxen:
+	    state: run  				#* REQUIRED
+	    vm_name: easyxen_worker1 	#* REQUIRED

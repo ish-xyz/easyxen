@@ -2,7 +2,13 @@
   connection: ssh
   become: true
   tasks:
-    - name: "Remove {{ vm_name }}"
-      easyxen:
-        state: absent
-        vm_name: "{{ vm_name }}"
+	- name: "Reconfigure XEN VM."
+	  easyxen:
+	    state: reconfigure
+	    vm_name: easyxen_worker1  	#*REQUIRED
+	    cpu: 1                    	#*REQUIRED
+	    ram: 1024                 	#*REQUIRED
+	    sr_name: 'Local storage'  	#*REQUIRED
+	    disk_0: 10GiB             	#*Optional (no default value)
+	    disk_1: 200MiB            	#*Optional (no default value)
+	    pub_key:                  	#*REQUIRED

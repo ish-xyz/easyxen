@@ -10,16 +10,16 @@ function reconfigure() {
 	function ansible_usage() {
   #Usage function, help
     cat <<____EOF____
-- name: "Reconfigure XEN vm."
+- name: "Reconfigure XEN VM."
   easyxen:
     state: reconfigure
-    vm_name: {{ vm_name }}    *REQUIRED
-    cpu: 1                    *REQUIRED
-    ram: 1024                 *REQUIRED
-    sr_name: 'Local storage'  *REQUIRED
-    disk_0: 10GiB             *Optional (default value= 10GiB)
-    disk_1: 200MiB            *Optional (default value= 10GiB)
-    pub_key:                  *REQUIRED
+    vm_name: easyxen_worker1  	#*REQUIRED
+    cpu: 1                    	#*REQUIRED
+    ram: 1024                 	#*REQUIRED
+    sr_name: 'Local storage'  	#*REQUIRED
+    disk_0: 10GiB             	#*Optional (no default value)
+    disk_1: 200MiB            	#*Optional (no default value)
+    pub_key:                  	#*REQUIRED
 ____EOF____
   }
 
