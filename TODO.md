@@ -31,3 +31,5 @@
 [ ] [WIP] reconfigure.sh -> Chekc space on storage before do stuff.
 
 [ ] configure_xen.sh -> install required pkgs, download images, create /mnt/easyxen/{log,images}, remove image if is older than x and has tag removable.)
+
+[ ] Makefile -> Syntax improvement and better setup.
