@@ -19,4 +19,5 @@ function main() {
 	fi	
 }
 
+source "$1"
 main
