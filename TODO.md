@@ -1,9 +1,8 @@
 #TEMP_TODO_NOTE:
 
 
-[ ] base_image -> create debian7
-
-[ ] base_image -> create debian8
+- [ ] base_image -> create debian7
+- [ ] base_image -> create debian8
 
 [ ] base_image -> create centos6
 
