@@ -3,7 +3,7 @@ function absent() {
 	##
 
 	function ansible_usage() {
-    	#Usage function, help
+ 		#Usage function, help
 		cat <<____EOF____
 - name: "Xen Remove VM"
   easyxen:

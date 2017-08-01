@@ -2,7 +2,7 @@
   connection: ssh
   become: true
   tasks:
-	- name: "Xen Remove VM"
-	  easyxen:
-	    state: absent  					#* REQUIRED
-	    vm_name: easyxen_worker1 		#* REQUIRED
+    - name: "Xen Remove VM"
+      easyxen:
+        state: absent  					#* REQUIRED
+        vm_name: easyxen_worker1 		#* REQUIRED
