@@ -19,7 +19,6 @@
 - [ ] present.sh -> Image download and cache on the XEN system
 - [ ] present.sh -> Handle multiple vif (hardware & OS configuration).
 - [ ] absent.sh -> Add keep disks feature
-- [ ] [WIP] reconfigure.sh -> Clean tmp files.
-- [ ] [WIP] reconfigure.sh -> Chekc space on storage before do stuff.
+- [ ] [WIP] reconfigure.sh -> Check hypervisor capacity before running the reconfiguration.
 - [ ] configure_xen.sh -> install required pkgs, download images, create /mnt/easyxen/{log,images}, remove image if is older than x and has tag removable.)
 - [ ] Makefile -> Syntax improvement and better setup.

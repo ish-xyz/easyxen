@@ -292,10 +292,20 @@ ____EOF____
 				#Resize action
 			done
 
+		rm -f "${TMPFILE001}" && \
+		rm -f "${TMPFILE002}" && \
+		rm -f "${TMPFILE003}"
+
 		changed=true
 		msg="VM ${vm_name} has been reconfigured."
 		printf '{"changed": %s, "msg": "%s"}' "${changed}" "${msg}"
+
 	else
+
+		rm -f "${TMPFILE001}" && \
+		rm -f "${TMPFILE002}" && \
+		rm -f "${TMPFILE003}"
+
 		#No action required, no changes.
 		changed=false
 		msg="VM ${vm_name} does not require any changes."
