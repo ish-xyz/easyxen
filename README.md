@@ -17,7 +17,7 @@ The module include the following features:
 		Create auto-sudo user.
 		Limit ssh authentication only with key.
 
-- [ ] Put userdata during the VM creation. (like AWS)
+- [X] Put userdata during the VM creation. (like AWS)
 - [ ] Run playbook after VM creation.
 - [ ] Build Images/templates in automation.
 - [X] Complete Ansible Integration as a Module and possibility to run the automation without Ansible.
