@@ -66,8 +66,10 @@ function log() {
 		if [[ "$1" == "msg" ]]; then
 			echo "$2" >> "${LOG_FILE}"
 		elif [[ "$1" == "exit" ]]; then
-			echo "$2 | rc: $3" >> "${LOG_FILE}"
-			exit $3
+			failed=true
+			msg="$2 | rc: $3";
+			printf '{"failed": %s, "msg": "%s"}' "${failed}" "${msg}"
+			exit 0
 		fi
 	else
 		if [[ "$1" == "msg" ]]; then
