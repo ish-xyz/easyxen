@@ -13,7 +13,6 @@
 - [ ] @all -> Create script to check syntax and lint of the module like pylint.
 - [ ] @all -> Output for ansible
 - [ ] @all -> Add common Lint and syntax check for BASH.
-- [ ] [WIP] prenset.sh -> Add userdata option.
 - [ ] present.sh -> Add DHCP option.
 - [ ] present.sh -> Create configuration per distro.
 - [ ] present.sh -> custom DNS (optional).
