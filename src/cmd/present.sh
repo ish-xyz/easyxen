@@ -36,6 +36,10 @@ function present() {
         network_file: '{network_path}/ifcfg-eth0'   #(optional) - default defined by OS distro.
         pub_key:  ssh-rsaAxxizu..roo@github.com     #*REQUIRED
         os_user: "{{vm_user}}"                      #(optional) - default = easyxen
+        userdata:									#(optional) - default = none
+          x: y
+          opts: 1
+          param: arg
 ____EOF____
 	}
 	
@@ -469,6 +473,26 @@ ARP=yes" > "${mount_point}${network_file}";
 		"Disable selinux -> ${mount_point}/etc/selinux/config" \
 		"fail" \
 		"${LINENO}"
+
+	#Import UserData
+	##
+	if [[ -n "${userdata}" ]]; then
+		touch "${mount_point}/etc/userdata"
+		check_exit \
+			"${rc}" \
+			"Create userdata file. ${mount_point}/etc/userdata" \
+			"Create userdata file. ${mount_point}/etc/userdata" \
+			"fail" \
+			"${LINENO}"
+
+		echo "${userdata}" >> "${mount_point}/etc/userdata"
+		check_exit \
+			"${rc}" \
+			"Import userdata file in ${mount_point}/etc/userdata" \
+			"Import userdata file in ${mount_point}/etc/userdata" \
+			"fail" \
+			"${LINENO}"
+	fi
 
 	###############################
 	####== UMOUNT GUEST DISK ==####
