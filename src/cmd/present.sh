@@ -565,9 +565,18 @@ ARP=yes" > "${mount_point}${network_file}";
 		"${LINENO}"
 
 	log 'msg' "temporary password => ${tmp_pass}"
+	log 'msg' "sshpass -p \"${tmp_pass}\" ssh -l root \"${ip_address}\" \
+	\"adduser --password 'xyz' --shell /bin/bash -m -c 'Easyxen Automation' ${os_user} && \
+		mkdir /home/${os_user}/.ssh && touch /home/${os_user}/.ssh/authorized_keys && \
+		echo ${pub_key} > /home/${os_user}/.ssh/authorized_keys && \
+		chmod 600 /home/${os_user}/.ssh/authorized_keys && \
+		sed -i 's/#PermitRootLogin yes/#PermitRootLogin no/g' /etc/ssh/sshd_config && \
+		sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config && \
+		echo \\"${os_user}  ALL=NOPASSWD: ALL\\" >> '/etc/sudoers' && \
+		chown -R ${os_user}:${os_user} /home/${os_user}/.ssh/\""
 
-	sshpass -p ${tmp_pass} ssh -l root "${ip_address}" \
-	"adduser --password xyz --shell /bin/bash -m -c 'Easyxen Automation' ${os_user} && \
+	sshpass -p "${tmp_pass}" ssh -l root "${ip_address}" \
+	"adduser --password 'xyz' --shell /bin/bash -m -c 'Easyxen Automation' ${os_user} && \
 		mkdir /home/${os_user}/.ssh && touch /home/${os_user}/.ssh/authorized_keys && \
 		echo ${pub_key} > /home/${os_user}/.ssh/authorized_keys && \
 		chmod 600 /home/${os_user}/.ssh/authorized_keys && \
