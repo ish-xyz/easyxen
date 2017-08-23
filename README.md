@@ -32,6 +32,7 @@ The module include the following features:
 - [ ] Ubuntu 16LTS VM support
 - [ ] Redhat 6 VM support
 - [ ] Redhat 7 VM support
+- [ ] Full Python (And compatible with 2.7 and 3.x)
 
 You can find some examples of the usage on the directory /plays/.
 
