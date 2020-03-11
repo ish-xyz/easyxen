@@ -1,4 +1,4 @@
-# [This software is not released yet. so, some of the following features are not available right now, but they will be soon. please for now do not use the module in production]
+# [Discontinued/Deprecated]
 
 # EASYXEN - Introduction
 
